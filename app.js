@@ -2,7 +2,7 @@
 // TRAVEL AGENCY APP — app.js
 // ============================================================
 
-const SUPABASE_URL = 'https://cduyifjlnmwdvulrwozj.supabase.co/rest/v1/';
+const SUPABASE_URL = 'https://cduyifjlnmwdvulrwozj.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNkdXlpZmpsbm13ZHZ1bHJ3b3pqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODI3MzgxMzQsImV4cCI6MjA5ODMxNDEzNH0.ekh3MjqZH1QvZMFBKahYAxmTOxITqL2n6b6ExpyzGVw';
 
 const { createClient } = supabase;
