@@ -2,8 +2,8 @@
 // TRAVEL AGENCY APP — app.js
 // ============================================================
 
-const SUPABASE_URL = 'https://cduyifjlnmwdvulrwozj.supabase.co';
-const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNkdXlpZmpsbm13ZHZ1bHJ3b3pqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODI3MzgxMzQsImV4cCI6MjA5ODMxNDEzNH0.ekh3MjqZH1QvZMFBKahYAxmTOxITqL2n6b6ExpyzGVw';
+const SUPABASE_URL = 'YOUR_SUPABASE_URL';
+const SUPABASE_KEY = 'YOUR_SUPABASE_ANON_KEY';
 
 const { createClient } = supabase;
 const db = createClient(SUPABASE_URL, SUPABASE_KEY);
@@ -71,6 +71,7 @@ async function login(email, password) {
   btn.textContent = 'Σύνδεση...';
   hide('login-error');
 
+  const rememberMe = document.getElementById('remember-me')?.checked;
   const { error } = await db.auth.signInWithPassword({ email, password });
 
   if (error) {
@@ -78,6 +79,12 @@ async function login(email, password) {
     show('login-error');
     btn.disabled = false;
     btn.textContent = 'Είσοδος';
+  } else {
+    if (rememberMe) {
+      localStorage.setItem('ta_remember_email', email);
+    } else {
+      localStorage.removeItem('ta_remember_email');
+    }
   }
 }
 
@@ -105,6 +112,7 @@ function navigateTo(view) {
     show('view-customers');
     document.querySelector('[data-view="customers"]').classList.add('active');
     loadCustomers();
+    initSortableTable('customers-table', () => state.customers, renderCustomersRows);
   } else if (view === 'trip-detail') {
     show('view-trip-detail');
   }
@@ -185,6 +193,24 @@ async function saveTrip() {
   if (error) return toast('Σφάλμα αποθήκευσης', 'error');
 
   toast(state.editingId ? 'Ταξίδι ενημερώθηκε' : 'Ταξίδι δημιουργήθηκε', 'success');
+
+  // If editing current trip, update state and info bar immediately
+  if (state.editingId && state.currentTrip && state.editingId === state.currentTrip.id) {
+    Object.assign(state.currentTrip, payload);
+    // Re-fetch to get computed duration_days
+    const { data: refreshed } = await db.from('trips').select('*').eq('id', state.editingId).single();
+    if (refreshed) {
+      state.currentTrip = refreshed;
+      setText('trip-detail-title', refreshed.title);
+      document.getElementById('trip-info-bar').innerHTML = `
+        <div class="trip-info-item"><span class="trip-info-label">Αναχώρηση</span><span class="trip-info-value">${formatDate(refreshed.date_from)}</span></div>
+        <div class="trip-info-item"><span class="trip-info-label">Επιστροφή</span><span class="trip-info-value">${formatDate(refreshed.date_to)}</span></div>
+        <div class="trip-info-item"><span class="trip-info-label">Διάρκεια</span><span class="trip-info-value">${refreshed.duration_days ?? '—'} ημέρες</span></div>
+        <div class="trip-info-item"><span class="trip-info-label">Άτομα</span><span class="trip-info-value">${refreshed.num_persons ?? 0}</span></div>
+      `;
+    }
+  }
+
   closeModal('modal-trip');
   loadTrips();
 }
@@ -201,25 +227,7 @@ async function loadCustomers(filter = '') {
 }
 
 function renderCustomers() {
-  const tbody = $('customers-tbody');
-  if (!state.customers.length) {
-    tbody.innerHTML = '<tr><td colspan="7" style="color:var(--text3);text-align:center;padding:1.5rem">Δεν βρέθηκαν πελάτες.</td></tr>';
-    return;
-  }
-  tbody.innerHTML = state.customers.map(c => `
-    <tr>
-      <td>${esc(c.last_name)}</td>
-      <td>${esc(c.first_name)}</td>
-      <td>${esc(c.telephone || '—')}</td>
-      <td>${esc(c.email || '—')}</td>
-      <td>${esc(c.passport_number || '—')}</td>
-      <td>${c.expiry_date ? formatDate(c.expiry_date) : '—'}</td>
-      <td>
-        <button class="btn-icon" onclick="editCustomer('${c.id}')">✏️</button>
-        <button class="btn-icon danger" onclick="deleteCustomer('${c.id}')">🗑</button>
-      </td>
-    </tr>
-  `).join('');
+  applySortFilter('customers-table', () => state.customers, renderCustomersRows);
 }
 
 async function saveCustomer() {
@@ -323,51 +331,11 @@ function updateParticipantCount() {
 }
 
 function renderParticipants() {
-  const tbody = document.getElementById('participants-tbody');
-  if (!state.currentParticipants.length) {
-    tbody.innerHTML = '<tr><td colspan="11" style="color:var(--text3);text-align:center;padding:1.5rem">Δεν υπάρχουν συμμετέχοντες ακόμα.</td></tr>';
-    return;
-  }
-  tbody.innerHTML = state.currentParticipants.map(p => `
-    <tr>
-      <td>${p.customers ? esc(p.customers.last_name) : '—'}</td>
-      <td>${p.customers ? esc(p.customers.first_name) : '—'}</td>
-      <td>${p.solo_couple || '—'}</td>
-      <td>${p.room_type || '—'}</td>
-      <td>${formatEur(p.deposit_amount)}</td>
-      <td>${formatEur(p.installment2_amount)}</td>
-      <td>${formatEur(p.installment3_amount)}</td>
-      <td>${formatEur(p.installment4_amount)}</td>
-      <td><span class="${p.balance > 0 ? 'badge badge-yellow' : 'badge badge-green'}">${formatEur(p.balance)}</span></td>
-      <td>${formatEur(p.final_payment)}</td>
-      <td>
-        <button class="btn-icon" onclick="editParticipant('${p.id}')">✏️</button>
-        <button class="btn-icon danger" onclick="deleteParticipant('${p.id}')">🗑</button>
-      </td>
-    </tr>
-  `).join('');
+  applySortFilter('participants-table', () => state.currentParticipants, renderParticipantsRows);
 }
 
 function renderWaitlist() {
-  const tbody = document.getElementById('waitlist-tbody');
-  if (!tbody) return;
-  if (!state.currentWaitlist.length) {
-    tbody.innerHTML = '<tr><td colspan="6" style="color:var(--text3);text-align:center;padding:1.5rem">Δεν υπάρχουν εφεδρικοί ακόμα.</td></tr>';
-    return;
-  }
-  tbody.innerHTML = state.currentWaitlist.map(p => `
-    <tr>
-      <td>${p.customers ? esc(p.customers.last_name) : '—'}</td>
-      <td>${p.customers ? esc(p.customers.first_name) : '—'}</td>
-      <td>${p.solo_couple || '—'}</td>
-      <td>${p.room_type || '—'}</td>
-      <td>${formatEur(p.deposit_amount)}</td>
-      <td>
-        <button class="btn btn-sm btn-primary" onclick="promoteFromWaitlist('${p.id}')">→ Μεταφορά στη Λίστα</button>
-        <button class="btn-icon danger" onclick="deleteParticipant('${p.id}', true)" style="margin-left:.3rem">🗑</button>
-      </td>
-    </tr>
-  `).join('');
+  applySortFilter('waitlist-table', () => state.currentWaitlist, renderWaitlistRows);
 }
 
 async function saveParticipant() {
@@ -547,27 +515,7 @@ async function loadCosts() {
 }
 
 function renderCosts() {
-  const tbody = $('costs-tbody');
-  if (!state.currentCosts.length) {
-    tbody.innerHTML = '<tr><td colspan="9" style="color:var(--text3);text-align:center;padding:1.5rem">Δεν υπάρχουν έξοδα ακόμα.</td></tr>';
-    return;
-  }
-  tbody.innerHTML = state.currentCosts.map(c => `
-    <tr>
-      <td>${esc(c.booking_ref || '—')}</td>
-      <td>${c.expense_type || '—'}</td>
-      <td>${formatEur(c.cost)}</td>
-      <td>${formatEur(c.amount_eur)}</td>
-      <td>${c.payment_method || '—'}</td>
-      <td>${c.entry_date ? formatDate(c.entry_date) : '—'}</td>
-      <td><span class="badge ${c.is_paid ? 'badge-green' : 'badge-gray'}">${c.is_paid ? 'Ναι' : 'Όχι'}</span></td>
-      <td><span class="badge ${c.has_invoice ? 'badge-green' : 'badge-gray'}">${c.has_invoice ? 'Ναι' : 'Όχι'}</span></td>
-      <td>
-        <button class="btn-icon" onclick="editCost('${c.id}')">✏️</button>
-        <button class="btn-icon danger" onclick="deleteCost('${c.id}')">🗑</button>
-      </td>
-    </tr>
-  `).join('');
+  applySortFilter('costs-table', () => state.currentCosts, renderCostsRows);
 }
 
 async function saveCost() {
@@ -766,12 +714,21 @@ function switchTab(tabName) {
   document.querySelector(`.tab[data-tab="${tabName}"]`).classList.add('active');
 
   // Load data for the tab
-  if (tabName === 'participants') loadParticipants();
-  if (tabName === 'costs')        loadCosts();
+  if (tabName === 'participants') {
+    loadParticipants();
+    initSortableTable('participants-table', () => state.currentParticipants, renderParticipantsRows);
+  }
+  if (tabName === 'costs') {
+    loadCosts();
+    initSortableTable('costs-table', () => state.currentCosts, renderCostsRows);
+  }
   if (tabName === 'financials')   loadFinancials();
   if (tabName === 'pricing')      loadPricing();
   if (tabName === 'tasks')        loadTasks();
-  if (tabName === 'waitlist')     loadWaitlist();
+  if (tabName === 'waitlist') {
+    loadWaitlist();
+    initSortableTable('waitlist-table', () => state.currentWaitlist, renderWaitlistRows);
+  }
 }
 
 // ── MODAL HELPERS ─────────────────────────────────────────────
@@ -919,9 +876,29 @@ function bindStaticEvents() {
 
   document.querySelectorAll('.modal-overlay').forEach(overlay => {
     overlay.addEventListener('click', e => {
-      if (e.target === overlay) closeModal(overlay.id);
+      if (e.target === overlay && !overlay.hasAttribute('data-no-backdrop-close')) {
+        closeModal(overlay.id);
+      }
     });
   });
+
+  // Password toggle
+  document.getElementById('toggle-password')?.addEventListener('click', () => {
+    const input = document.getElementById('login-password');
+    const eyeOn  = document.getElementById('eye-icon');
+    const eyeOff = document.getElementById('eye-off-icon');
+    const isPass = input.type === 'password';
+    input.type = isPass ? 'text' : 'password';
+    eyeOn.classList.toggle('hidden', isPass);
+    eyeOff.classList.toggle('hidden', !isPass);
+  });
+
+  // Remember me - pre-fill email if saved
+  const savedEmail = localStorage.getItem('ta_remember_email');
+  if (savedEmail) {
+    document.getElementById('login-email').value = savedEmail;
+    document.getElementById('remember-me').checked = true;
+  }
 }
 
 // ── UTILITIES ─────────────────────────────────────────────────
@@ -952,4 +929,191 @@ function toast(msg, type = 'success') {
   el.textContent = msg;
   $('toast-container').appendChild(el);
   setTimeout(() => el.remove(), 3500);
+}
+
+// ── SORTING & FILTERING ───────────────────────────────────────
+const sortState = {};   // { tableId: { col, dir } }
+const filterState = {}; // { tableId: { col: value } }
+
+function initSortableTable(tableId, getData, renderFn) {
+  const table = document.getElementById(tableId);
+  if (!table) return;
+
+  sortState[tableId]  = { col: null, dir: 'asc' };
+  filterState[tableId] = {};
+
+  // Sort on header click
+  table.querySelectorAll('thead th[data-col]').forEach(th => {
+    th.style.cursor = 'pointer';
+    th.addEventListener('click', () => {
+      const col = th.dataset.col;
+      if (sortState[tableId].col === col) {
+        sortState[tableId].dir = sortState[tableId].dir === 'asc' ? 'desc' : 'asc';
+      } else {
+        sortState[tableId].col = col;
+        sortState[tableId].dir = 'asc';
+      }
+      updateSortIcons(table, col, sortState[tableId].dir);
+      applySortFilter(tableId, getData, renderFn);
+    });
+  });
+
+  // Filter on input/select change
+  table.querySelectorAll('.filter-input').forEach(input => {
+    input.addEventListener('input', () => {
+      filterState[tableId][input.dataset.col] = input.value;
+      applySortFilter(tableId, getData, renderFn);
+    });
+    input.addEventListener('change', () => {
+      filterState[tableId][input.dataset.col] = input.value;
+      applySortFilter(tableId, getData, renderFn);
+    });
+    // Stop header sort from firing when clicking filter row
+    input.addEventListener('click', e => e.stopPropagation());
+  });
+}
+
+function updateSortIcons(table, activeCol, dir) {
+  table.querySelectorAll('thead th[data-col] .sort-icon').forEach(icon => {
+    const col = icon.closest('th').dataset.col;
+    icon.textContent = col === activeCol ? (dir === 'asc' ? '↑' : '↓') : '⇅';
+  });
+}
+
+function applySortFilter(tableId, getData, renderFn) {
+  let rows = [...getData()];
+
+  // Apply filters
+  const filters = filterState[tableId] || {};
+  for (const [col, val] of Object.entries(filters)) {
+    if (!val) continue;
+    rows = rows.filter(row => {
+      const cellVal = getNestedVal(row, col);
+      if (cellVal === null || cellVal === undefined) return false;
+      return String(cellVal).toLowerCase().includes(String(val).toLowerCase());
+    });
+  }
+
+  // Apply sort
+  const { col, dir } = sortState[tableId] || {};
+  if (col) {
+    rows.sort((a, b) => {
+      let va = getNestedVal(a, col) ?? '';
+      let vb = getNestedVal(b, col) ?? '';
+      // numeric
+      if (!isNaN(va) && !isNaN(vb) && va !== '' && vb !== '') {
+        va = Number(va); vb = Number(vb);
+      } else {
+        va = String(va).toLowerCase();
+        vb = String(vb).toLowerCase();
+      }
+      if (va < vb) return dir === 'asc' ? -1 : 1;
+      if (va > vb) return dir === 'asc' ?  1 : -1;
+      return 0;
+    });
+  }
+
+  renderFn(rows);
+}
+
+function getNestedVal(obj, col) {
+  // Support customer nested fields like last_name from customers join
+  if (col === 'last_name' && obj.customers) return obj.customers.last_name;
+  if (col === 'first_name' && obj.customers) return obj.customers.first_name;
+  return obj[col];
+}
+
+// Wrap render functions to support sort/filter
+function renderParticipantsRows(rows) {
+  const tbody = document.getElementById('participants-tbody');
+  if (!rows.length) {
+    tbody.innerHTML = '<tr><td colspan="11" style="color:var(--text3);text-align:center;padding:1.5rem">Δεν υπάρχουν συμμετέχοντες.</td></tr>';
+    return;
+  }
+  tbody.innerHTML = rows.map(p => `
+    <tr>
+      <td>${p.customers ? esc(p.customers.last_name) : '—'}</td>
+      <td>${p.customers ? esc(p.customers.first_name) : '—'}</td>
+      <td>${p.solo_couple || '—'}</td>
+      <td>${p.room_type || '—'}</td>
+      <td>${formatEur(p.deposit_amount)}</td>
+      <td>${formatEur(p.installment2_amount)}</td>
+      <td>${formatEur(p.installment3_amount)}</td>
+      <td>${formatEur(p.installment4_amount)}</td>
+      <td><span class="${p.balance > 0 ? 'badge badge-yellow' : 'badge badge-green'}">${formatEur(p.balance)}</span></td>
+      <td>${formatEur(p.final_payment)}</td>
+      <td>
+        <button class="btn-icon" onclick="editParticipant('${p.id}')">✏️</button>
+        <button class="btn-icon danger" onclick="deleteParticipant('${p.id}')">🗑</button>
+      </td>
+    </tr>
+  `).join('');
+}
+
+function renderWaitlistRows(rows) {
+  const tbody = document.getElementById('waitlist-tbody');
+  if (!tbody) return;
+  if (!rows.length) {
+    tbody.innerHTML = '<tr><td colspan="6" style="color:var(--text3);text-align:center;padding:1.5rem">Δεν υπάρχουν εφεδρικοί ακόμα.</td></tr>';
+    return;
+  }
+  tbody.innerHTML = rows.map(p => `
+    <tr>
+      <td>${p.customers ? esc(p.customers.last_name) : '—'}</td>
+      <td>${p.customers ? esc(p.customers.first_name) : '—'}</td>
+      <td>${p.solo_couple || '—'}</td>
+      <td>${p.room_type || '—'}</td>
+      <td>${formatEur(p.deposit_amount)}</td>
+      <td>
+        <button class="btn btn-sm btn-primary" onclick="promoteFromWaitlist('${p.id}')">→ Μεταφορά</button>
+        <button class="btn-icon danger" onclick="deleteParticipant('${p.id}', true)" style="margin-left:.3rem">🗑</button>
+      </td>
+    </tr>
+  `).join('');
+}
+
+function renderCostsRows(rows) {
+  const tbody = document.getElementById('costs-tbody');
+  if (!rows.length) {
+    tbody.innerHTML = '<tr><td colspan="9" style="color:var(--text3);text-align:center;padding:1.5rem">Δεν υπάρχουν έξοδα ακόμα.</td></tr>';
+    return;
+  }
+  tbody.innerHTML = rows.map(c => `
+    <tr>
+      <td>${esc(c.booking_ref || '—')}</td>
+      <td>${c.expense_type || '—'}</td>
+      <td>${formatEur(c.cost)}</td>
+      <td>${formatEur(c.amount_eur)}</td>
+      <td>${c.payment_method || '—'}</td>
+      <td>${c.entry_date ? formatDate(c.entry_date) : '—'}</td>
+      <td><span class="badge ${c.is_paid ? 'badge-green' : 'badge-gray'}">${c.is_paid ? 'Ναι' : 'Όχι'}</span></td>
+      <td><span class="badge ${c.has_invoice ? 'badge-green' : 'badge-gray'}">${c.has_invoice ? 'Ναι' : 'Όχι'}</span></td>
+      <td>
+        <button class="btn-icon" onclick="editCost('${c.id}')">✏️</button>
+        <button class="btn-icon danger" onclick="deleteCost('${c.id}')">🗑</button>
+      </td>
+    </tr>
+  `).join('');
+}
+
+function renderCustomersRows(rows) {
+  const tbody = document.getElementById('customers-tbody');
+  if (!rows.length) {
+    tbody.innerHTML = '<tr><td colspan="7" style="color:var(--text3);text-align:center;padding:1.5rem">Δεν βρέθηκαν πελάτες.</td></tr>';
+    return;
+  }
+  tbody.innerHTML = rows.map(c => `
+    <tr>
+      <td>${esc(c.last_name)}</td>
+      <td>${esc(c.first_name)}</td>
+      <td>${esc(c.telephone || '—')}</td>
+      <td>${esc(c.email || '—')}</td>
+      <td>${esc(c.passport_number || '—')}</td>
+      <td>${c.expiry_date ? formatDate(c.expiry_date) : '—'}</td>
+      <td>
+        <button class="btn-icon" onclick="editCustomer('${c.id}')">✏️</button>
+        <button class="btn-icon danger" onclick="deleteCustomer('${c.id}')">🗑</button>
+      </td>
+    </tr>
+  `).join('');
 }
