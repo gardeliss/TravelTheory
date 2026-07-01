@@ -2,8 +2,8 @@
 // TRAVEL AGENCY APP — app.js
 // ============================================================
 
-const SUPABASE_URL = 'https://cduyifjlnmwdvulrwozj.supabase.co';
-const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNkdXlpZmpsbm13ZHZ1bHJ3b3pqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODI3MzgxMzQsImV4cCI6MjA5ODMxNDEzNH0.ekh3MjqZH1QvZMFBKahYAxmTOxITqL2n6b6ExpyzGVw';
+const SUPABASE_URL = 'YOUR_SUPABASE_URL';
+const SUPABASE_KEY = 'YOUR_SUPABASE_ANON_KEY';
 
 const { createClient } = supabase;
 const db = createClient(SUPABASE_URL, SUPABASE_KEY);
@@ -15,10 +15,12 @@ const state = {
   customers: [],
   currentTrip: null,
   currentParticipants: [],
+  currentWaitlist: [],
   currentCosts: [],
   currentTasks: [],
-  editingId: null,       // generic: which record is being edited
+  editingId: null,
   selectedCustomerId: null,
+  addingToWaitlist: false,
 };
 
 const BANK_METHODS  = ['ALPHA','EUROBANK','ΕΘΝΙΚΗ','REVOLUT','E-POS'];
@@ -51,8 +53,14 @@ document.addEventListener('DOMContentLoaded', async () => {
   }
 
   db.auth.onAuthStateChange((_event, session) => {
-    if (session) { state.user = session.user; enterApp(); }
-    else         { showScreen('login'); }
+    if (session) {
+      state.user = session.user;
+      // Only enter app if we're currently on login screen
+      if (!$('app-screen').classList.contains('hidden')) return;
+      enterApp();
+    } else {
+      showScreen('login');
+    }
   });
 });
 
@@ -279,53 +287,99 @@ async function loadParticipants() {
     .from('trip_participants')
     .select('*, customers(first_name, last_name)')
     .eq('trip_id', state.currentTrip.id)
+    .eq('is_waitlist', false)
     .order('created_at');
 
   if (error) return toast('Σφάλμα φόρτωσης συμμετεχόντων', 'error');
   state.currentParticipants = data || [];
   renderParticipants();
+  updateParticipantCount();
+}
+
+async function loadWaitlist() {
+  const { data, error } = await db
+    .from('trip_participants')
+    .select('*, customers(first_name, last_name)')
+    .eq('trip_id', state.currentTrip.id)
+    .eq('is_waitlist', true)
+    .order('created_at');
+
+  if (error) return toast('Σφάλμα φόρτωσης εφεδρικών', 'error');
+  state.currentWaitlist = data || [];
+  renderWaitlist();
+}
+
+function updateParticipantCount() {
+  const max     = state.currentTrip.num_persons || 0;
+  const current = state.currentParticipants.length;
+  const el = document.getElementById('participant-count-bar');
+  if (!el) return;
+  el.innerHTML = `
+    <span>Συμμετέχοντες: <strong>${current}</strong> / <strong>${max}</strong></span>
+    ${current >= max && max > 0
+      ? '<span class="badge badge-yellow" style="margin-left:.8rem">⚠️ Μέγιστος αριθμός ατόμων</span>'
+      : ''}
+  `;
 }
 
 function renderParticipants() {
-  const tbody = $('participants-tbody');
+  const tbody = document.getElementById('participants-tbody');
   if (!state.currentParticipants.length) {
     tbody.innerHTML = '<tr><td colspan="11" style="color:var(--text3);text-align:center;padding:1.5rem">Δεν υπάρχουν συμμετέχοντες ακόμα.</td></tr>';
     return;
   }
-  tbody.innerHTML = state.currentParticipants.map(p => {
-    const name = p.customers ? `${esc(p.customers.last_name)} ${esc(p.customers.first_name)}` : '—';
-    return `
-      <tr>
-        <td>${p.customers ? esc(p.customers.last_name) : '—'}</td>
-        <td>${p.customers ? esc(p.customers.first_name) : '—'}</td>
-        <td>${p.solo_couple || '—'}</td>
-        <td>${p.room_type || '—'}</td>
-        <td>${formatEur(p.deposit_amount)}</td>
-        <td>${formatEur(p.installment2_amount)}</td>
-        <td>${formatEur(p.installment3_amount)}</td>
-        <td>${formatEur(p.installment4_amount)}</td>
-        <td><span class="${p.balance > 0 ? 'badge badge-yellow' : 'badge badge-green'}">${formatEur(p.balance)}</span></td>
-        <td>${formatEur(p.final_payment)}</td>
-        <td>
-          <button class="btn-icon" onclick="editParticipant('${p.id}')">✏️</button>
-          <button class="btn-icon danger" onclick="deleteParticipant('${p.id}')">🗑</button>
-        </td>
-      </tr>
-    `;
-  }).join('');
+  tbody.innerHTML = state.currentParticipants.map(p => `
+    <tr>
+      <td>${p.customers ? esc(p.customers.last_name) : '—'}</td>
+      <td>${p.customers ? esc(p.customers.first_name) : '—'}</td>
+      <td>${p.solo_couple || '—'}</td>
+      <td>${p.room_type || '—'}</td>
+      <td>${formatEur(p.deposit_amount)}</td>
+      <td>${formatEur(p.installment2_amount)}</td>
+      <td>${formatEur(p.installment3_amount)}</td>
+      <td>${formatEur(p.installment4_amount)}</td>
+      <td><span class="${p.balance > 0 ? 'badge badge-yellow' : 'badge badge-green'}">${formatEur(p.balance)}</span></td>
+      <td>${formatEur(p.final_payment)}</td>
+      <td>
+        <button class="btn-icon" onclick="editParticipant('${p.id}')">✏️</button>
+        <button class="btn-icon danger" onclick="deleteParticipant('${p.id}')">🗑</button>
+      </td>
+    </tr>
+  `).join('');
+}
+
+function renderWaitlist() {
+  const tbody = document.getElementById('waitlist-tbody');
+  if (!tbody) return;
+  if (!state.currentWaitlist.length) {
+    tbody.innerHTML = '<tr><td colspan="6" style="color:var(--text3);text-align:center;padding:1.5rem">Δεν υπάρχουν εφεδρικοί ακόμα.</td></tr>';
+    return;
+  }
+  tbody.innerHTML = state.currentWaitlist.map(p => `
+    <tr>
+      <td>${p.customers ? esc(p.customers.last_name) : '—'}</td>
+      <td>${p.customers ? esc(p.customers.first_name) : '—'}</td>
+      <td>${p.solo_couple || '—'}</td>
+      <td>${p.room_type || '—'}</td>
+      <td>${formatEur(p.deposit_amount)}</td>
+      <td>
+        <button class="btn btn-sm btn-primary" onclick="promoteFromWaitlist('${p.id}')">→ Μεταφορά στη Λίστα</button>
+        <button class="btn-icon danger" onclick="deleteParticipant('${p.id}', true)" style="margin-left:.3rem">🗑</button>
+      </td>
+    </tr>
+  `).join('');
 }
 
 async function saveParticipant() {
   if (!state.selectedCustomerId) return toast('Επιλέξτε πελάτη', 'error');
 
-  const dep  = parseInt($('part-deposit-amount').value)  || 0;
-  const ins2 = parseInt($('part-inst2-amount').value)    || 0;
-  const ins3 = parseInt($('part-inst3-amount').value)    || 0;
-  const ins4 = parseInt($('part-inst4-amount').value)    || 0;
+  const dep  = parseInt(document.getElementById('part-deposit-amount').value)  || 0;
+  const ins2 = parseInt(document.getElementById('part-inst2-amount').value)    || 0;
+  const ins3 = parseInt(document.getElementById('part-inst3-amount').value)    || 0;
+  const ins4 = parseInt(document.getElementById('part-inst4-amount').value)    || 0;
   const totalPaid = dep + ins2 + ins3 + ins4;
 
-  // Auto-calculate balance from trip pricing if not manually set
-  const manualBalance = $('part-balance').value;
+  const manualBalance = document.getElementById('part-balance').value;
   let balance;
   if (manualBalance !== '') {
     balance = parseInt(manualBalance);
@@ -335,25 +389,41 @@ async function saveParticipant() {
     balance = refPrice > 0 ? Math.max(0, refPrice - totalPaid) : 0;
   }
 
+  // Check capacity (only for new non-waitlist entries)
+  const isWaitlist = state.addingToWaitlist;
+  if (!state.editingId && !isWaitlist) {
+    const max = state.currentTrip.num_persons || 0;
+    if (max > 0 && state.currentParticipants.length >= max) {
+      const goWaitlist = confirm(
+        `Έχετε φτάσει τον μέγιστο αριθμό ατόμων (${max}).
+
+Θέλετε να προσθέσετε τον πελάτη στους Εφεδρικούς;`
+      );
+      if (!goWaitlist) return;
+      state.addingToWaitlist = true;
+    }
+  }
+
   const payload = {
     trip_id:              state.currentTrip.id,
     customer_id:          state.selectedCustomerId,
-    solo_couple:          $('part-solo-couple').value  || null,
-    room_type:            $('part-room-type').value    || null,
+    is_waitlist:          state.addingToWaitlist,
+    solo_couple:          document.getElementById('part-solo-couple').value  || null,
+    room_type:            document.getElementById('part-room-type').value    || null,
     deposit_amount:       dep,
-    deposit_method:       $('part-deposit-method').value  || null,
-    deposit_date:         $('part-deposit-date').value    || null,
+    deposit_method:       document.getElementById('part-deposit-method').value  || null,
+    deposit_date:         document.getElementById('part-deposit-date').value    || null,
     installment2_amount:  ins2,
-    installment2_method:  $('part-inst2-method').value   || null,
-    installment2_date:    $('part-inst2-date').value      || null,
+    installment2_method:  document.getElementById('part-inst2-method').value   || null,
+    installment2_date:    document.getElementById('part-inst2-date').value      || null,
     installment3_amount:  ins3,
-    installment3_method:  $('part-inst3-method').value   || null,
-    installment3_date:    $('part-inst3-date').value      || null,
+    installment3_method:  document.getElementById('part-inst3-method').value   || null,
+    installment3_date:    document.getElementById('part-inst3-date').value      || null,
     installment4_amount:  ins4,
-    installment4_method:  $('part-inst4-method').value   || null,
-    installment4_date:    $('part-inst4-date').value      || null,
+    installment4_method:  document.getElementById('part-inst4-method').value   || null,
+    installment4_date:    document.getElementById('part-inst4-date').value      || null,
     balance,
-    final_payment:        parseInt($('part-final-payment').value) || 0,
+    final_payment:        parseInt(document.getElementById('part-final-payment').value) || 0,
   };
 
   let error;
@@ -363,11 +433,25 @@ async function saveParticipant() {
     ({ error } = await db.from('trip_participants').insert(payload));
   }
 
-  if (error) return toast('Σφάλμα αποθήκευσης' + (error.message.includes('unique') ? ': Ο πελάτης συμμετέχει ήδη' : ''), 'error');
+  if (error) return toast('Σφάλμα αποθήκευσης' + (error.message?.includes('unique') ? ': Ο πελάτης συμμετέχει ήδη' : ''), 'error');
 
-  toast('Αποθηκεύτηκε', 'success');
+  toast(state.addingToWaitlist ? 'Προστέθηκε στους Εφεδρικούς' : 'Αποθηκεύτηκε', 'success');
   closeModal('modal-participant');
   loadParticipants();
+  loadWaitlist();
+}
+
+async function promoteFromWaitlist(id) {
+  const max = state.currentTrip.num_persons || 0;
+  if (max > 0 && state.currentParticipants.length >= max) {
+    return toast(`Δεν υπάρχει χώρος στη λίστα (μέγιστο: ${max} άτομα)`, 'error');
+  }
+  if (!confirm('Μεταφορά στην κύρια λίστα;')) return;
+  const { error } = await db.from('trip_participants').update({ is_waitlist: false }).eq('id', id);
+  if (error) return toast('Σφάλμα μεταφοράς', 'error');
+  toast('Μεταφέρθηκε στη λίστα', 'success');
+  loadParticipants();
+  loadWaitlist();
 }
 
 async function editParticipant(id) {
@@ -402,12 +486,13 @@ async function editParticipant(id) {
   openModal('modal-participant');
 }
 
-async function deleteParticipant(id) {
-  if (!confirm('Αφαίρεση συμμετέχοντα;')) return;
+async function deleteParticipant(id, fromWaitlist = false) {
+  if (!confirm(fromWaitlist ? 'Διαγραφή εφεδρικού;' : 'Αφαίρεση συμμετέχοντα;')) return;
   const { error } = await db.from('trip_participants').delete().eq('id', id);
   if (error) return toast('Σφάλμα διαγραφής', 'error');
   toast('Αφαιρέθηκε', 'success');
   loadParticipants();
+  if (fromWaitlist) loadWaitlist();
 }
 
 // Customer search for participant modal
@@ -686,6 +771,7 @@ function switchTab(tabName) {
   if (tabName === 'financials')   loadFinancials();
   if (tabName === 'pricing')      loadPricing();
   if (tabName === 'tasks')        loadTasks();
+  if (tabName === 'waitlist')     loadWaitlist();
 }
 
 // ── MODAL HELPERS ─────────────────────────────────────────────
@@ -724,6 +810,7 @@ function resetParticipantForm() {
   setText('modal-participant-title', 'Προσθήκη Συμμετέχοντα');
   state.editingId = null;
   state.selectedCustomerId = null;
+  state.addingToWaitlist = false;
 }
 
 function resetCostForm() {
@@ -794,6 +881,15 @@ function bindStaticEvents() {
   // Add participant
   $('btn-add-participant').addEventListener('click', () => {
     resetParticipantForm();
+    state.addingToWaitlist = false;
+    openModal('modal-participant');
+  });
+
+  // Add to waitlist
+  document.getElementById('btn-add-waitlist')?.addEventListener('click', () => {
+    resetParticipantForm();
+    state.addingToWaitlist = true;
+    setText('modal-participant-title', 'Προσθήκη Εφεδρικού');
     openModal('modal-participant');
   });
 

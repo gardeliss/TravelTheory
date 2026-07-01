@@ -111,6 +111,7 @@
           <button class="tab" data-tab="financials">Λογιστική</button>
           <button class="tab" data-tab="pricing">Τιμές</button>
           <button class="tab" data-tab="tasks">Tasks</button>
+          <button class="tab" data-tab="waitlist">Εφεδρικοί</button>
         </div>
 
         <!-- Tab panels -->
@@ -118,6 +119,7 @@
           <div class="panel-toolbar">
             <button class="btn btn-primary btn-sm" id="btn-add-participant">+ Προσθήκη Συμμετέχοντα</button>
           </div>
+          <div id="participant-count-bar" class="participant-count-bar"></div>
           <div id="participants-table-wrap">
             <table class="data-table" id="participants-table">
               <thead>
@@ -172,6 +174,25 @@
 
         <div id="tab-tasks" class="tab-panel hidden">
           <div id="tasks-content" class="tasks-list"></div>
+        </div>
+
+        <div id="tab-waitlist" class="tab-panel hidden">
+          <div class="panel-toolbar">
+            <button class="btn btn-primary btn-sm" id="btn-add-waitlist">+ Προσθήκη Εφεδρικού</button>
+          </div>
+          <table class="data-table" id="waitlist-table">
+            <thead>
+              <tr>
+                <th>Επώνυμο</th>
+                <th>Όνομα</th>
+                <th>Τύπος</th>
+                <th>Δωμάτιο</th>
+                <th>Προκαταβολή</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody id="waitlist-tbody"></tbody>
+          </table>
         </div>
 
       </div>
