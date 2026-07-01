@@ -19,11 +19,23 @@
       <form id="login-form">
         <div class="field-group">
           <label for="login-email">Email</label>
-          <input type="email" id="login-email" placeholder="user@example.com" required />
+          <input type="email" id="login-email" placeholder="user@example.com" required autocomplete="email" />
         </div>
         <div class="field-group">
           <label for="login-password">Κωδικός</label>
-          <input type="password" id="login-password" placeholder="••••••••" required />
+          <div class="password-wrap">
+            <input type="password" id="login-password" placeholder="••••••••" required autocomplete="current-password" />
+            <button type="button" class="password-toggle" id="toggle-password" tabindex="-1" aria-label="Εμφάνιση κωδικού">
+              <svg id="eye-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+              <svg id="eye-off-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="hidden"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
+            </button>
+          </div>
+        </div>
+        <div class="field-group remember-me-row">
+          <label class="remember-label">
+            <input type="checkbox" id="remember-me" />
+            <span>Να με θυμάσαι</span>
+          </label>
         </div>
         <div id="login-error" class="error-msg hidden"></div>
         <button type="submit" class="btn btn-primary btn-full" id="login-btn">Είσοδος</button>
@@ -76,15 +88,15 @@
           <input type="text" id="customer-search" placeholder="Αναζήτηση ονόματος, email, διαβατηρίου..." />
         </div>
         <div id="customers-table-wrap">
-          <table class="data-table" id="customers-table">
+          <table class="data-table sortable-table" id="customers-table">
             <thead>
               <tr>
-                <th>Επώνυμο</th>
-                <th>Όνομα</th>
+                <th data-col="last_name" data-type="text">Επώνυμο <span class="sort-icon">⇅</span></th>
+                <th data-col="first_name" data-type="text">Όνομα <span class="sort-icon">⇅</span></th>
                 <th>Τηλέφωνο</th>
-                <th>Email</th>
-                <th>Διαβατήριο</th>
-                <th>Λήξη</th>
+                <th data-col="email" data-type="text">Email <span class="sort-icon">⇅</span></th>
+                <th data-col="passport_number" data-type="text">Διαβατήριο <span class="sort-icon">⇅</span></th>
+                <th data-col="expiry_date" data-type="date">Λήξη <span class="sort-icon">⇅</span></th>
                 <th></th>
               </tr>
             </thead>
@@ -114,27 +126,44 @@
           <button class="tab" data-tab="waitlist">Εφεδρικοί</button>
         </div>
 
-        <!-- Tab panels -->
+        <!-- Tab: Participants -->
         <div id="tab-participants" class="tab-panel">
           <div class="panel-toolbar">
             <button class="btn btn-primary btn-sm" id="btn-add-participant">+ Προσθήκη Συμμετέχοντα</button>
           </div>
           <div id="participant-count-bar" class="participant-count-bar"></div>
           <div id="participants-table-wrap">
-            <table class="data-table" id="participants-table">
+            <table class="data-table sortable-table" id="participants-table">
               <thead>
                 <tr>
-                  <th>Επώνυμο</th>
-                  <th>Όνομα</th>
-                  <th>Τύπος</th>
-                  <th>Δωμάτιο</th>
-                  <th>Προκαταβολή</th>
-                  <th>2η Δόση</th>
-                  <th>3η Δόση</th>
-                  <th>4η Δόση</th>
-                  <th>Υπόλοιπο</th>
-                  <th>Εξόφληση</th>
+                  <th data-col="last_name" data-type="text">Επώνυμο <span class="sort-icon">⇅</span></th>
+                  <th data-col="first_name" data-type="text">Όνομα <span class="sort-icon">⇅</span></th>
+                  <th data-col="solo_couple" data-type="text" data-filterable="true">Τύπος <span class="sort-icon">⇅</span></th>
+                  <th data-col="room_type" data-type="text" data-filterable="true">Δωμάτιο <span class="sort-icon">⇅</span></th>
+                  <th data-col="deposit_amount" data-type="num">Προκαταβολή <span class="sort-icon">⇅</span></th>
+                  <th data-col="installment2_amount" data-type="num">2η Δόση <span class="sort-icon">⇅</span></th>
+                  <th data-col="installment3_amount" data-type="num">3η Δόση <span class="sort-icon">⇅</span></th>
+                  <th data-col="installment4_amount" data-type="num">4η Δόση <span class="sort-icon">⇅</span></th>
+                  <th data-col="balance" data-type="num">Υπόλοιπο <span class="sort-icon">⇅</span></th>
+                  <th data-col="final_payment" data-type="num">Εξόφληση <span class="sort-icon">⇅</span></th>
                   <th></th>
+                </tr>
+                <tr class="filter-row" id="participants-filter-row">
+                  <td><input class="filter-input" data-col="last_name" placeholder="Φίλτρο..." /></td>
+                  <td><input class="filter-input" data-col="first_name" placeholder="Φίλτρο..." /></td>
+                  <td>
+                    <select class="filter-input" data-col="solo_couple">
+                      <option value="">Όλα</option>
+                      <option>SOLO</option><option>COUPLE</option>
+                    </select>
+                  </td>
+                  <td>
+                    <select class="filter-input" data-col="room_type">
+                      <option value="">Όλα</option>
+                      <option>SINGLE</option><option>TWIN</option><option>DOUBLE</option><option>TRIPLE</option>
+                    </select>
+                  </td>
+                  <td></td><td></td><td></td><td></td><td></td><td></td><td></td>
                 </tr>
               </thead>
               <tbody id="participants-tbody"></tbody>
@@ -142,53 +171,100 @@
           </div>
         </div>
 
+        <!-- Tab: Costs -->
         <div id="tab-costs" class="tab-panel hidden">
           <div class="panel-toolbar">
             <button class="btn btn-primary btn-sm" id="btn-add-cost">+ Νέο Έξοδο</button>
           </div>
-          <table class="data-table" id="costs-table">
+          <table class="data-table sortable-table" id="costs-table">
             <thead>
               <tr>
-                <th>Αρ. Κράτησης</th>
-                <th>Τύπος</th>
-                <th>Κόστος €</th>
-                <th>Ποσό €</th>
-                <th>Τρόπος Πληρ.</th>
-                <th>Ημ/νία</th>
-                <th>Πληρώθηκε</th>
+                <th data-col="booking_ref" data-type="text">Αρ. Κράτησης <span class="sort-icon">⇅</span></th>
+                <th data-col="expense_type" data-type="text" data-filterable="true">Τύπος <span class="sort-icon">⇅</span></th>
+                <th data-col="cost" data-type="num">Κόστος € <span class="sort-icon">⇅</span></th>
+                <th data-col="amount_eur" data-type="num">Ποσό € <span class="sort-icon">⇅</span></th>
+                <th data-col="payment_method" data-type="text" data-filterable="true">Τρόπος Πληρ. <span class="sort-icon">⇅</span></th>
+                <th data-col="entry_date" data-type="date">Ημ/νία <span class="sort-icon">⇅</span></th>
+                <th data-col="is_paid" data-type="text" data-filterable="true">Πληρώθηκε <span class="sort-icon">⇅</span></th>
                 <th>Τιμολόγιο</th>
                 <th></th>
+              </tr>
+              <tr class="filter-row" id="costs-filter-row">
+                <td><input class="filter-input" data-col="booking_ref" placeholder="Φίλτρο..." /></td>
+                <td>
+                  <select class="filter-input" data-col="expense_type">
+                    <option value="">Όλα</option>
+                    <option>ΞΕΝΟΔΟΧΕΙΟ</option><option>ΑΕΡΟΠΟΡΙΚΑ</option>
+                  </select>
+                </td>
+                <td></td><td></td>
+                <td>
+                  <select class="filter-input" data-col="payment_method">
+                    <option value="">Όλα</option>
+                    <option>ALPHA</option><option>EUROBANK</option><option>ΕΘΝΙΚΗ</option>
+                    <option>REVOLUT</option><option>E-POS</option>
+                    <option>ΜΕΤΡΗΤΑ</option><option>ΜΕΤΡΗΤΑ (ΑΠΟΔΕΙΞΗ)</option>
+                  </select>
+                </td>
+                <td></td>
+                <td>
+                  <select class="filter-input" data-col="is_paid">
+                    <option value="">Όλα</option>
+                    <option value="true">Ναι</option><option value="false">Όχι</option>
+                  </select>
+                </td>
+                <td></td><td></td>
               </tr>
             </thead>
             <tbody id="costs-tbody"></tbody>
           </table>
         </div>
 
+        <!-- Tab: Financials -->
         <div id="tab-financials" class="tab-panel hidden">
           <div id="financials-content" class="financials-grid"></div>
         </div>
 
+        <!-- Tab: Pricing -->
         <div id="tab-pricing" class="tab-panel hidden">
           <div id="pricing-content" class="pricing-form"></div>
         </div>
 
+        <!-- Tab: Tasks -->
         <div id="tab-tasks" class="tab-panel hidden">
           <div id="tasks-content" class="tasks-list"></div>
         </div>
 
+        <!-- Tab: Waitlist -->
         <div id="tab-waitlist" class="tab-panel hidden">
           <div class="panel-toolbar">
             <button class="btn btn-primary btn-sm" id="btn-add-waitlist">+ Προσθήκη Εφεδρικού</button>
           </div>
-          <table class="data-table" id="waitlist-table">
+          <table class="data-table sortable-table" id="waitlist-table">
             <thead>
               <tr>
-                <th>Επώνυμο</th>
-                <th>Όνομα</th>
-                <th>Τύπος</th>
-                <th>Δωμάτιο</th>
-                <th>Προκαταβολή</th>
+                <th data-col="last_name" data-type="text">Επώνυμο <span class="sort-icon">⇅</span></th>
+                <th data-col="first_name" data-type="text">Όνομα <span class="sort-icon">⇅</span></th>
+                <th data-col="solo_couple" data-type="text" data-filterable="true">Τύπος <span class="sort-icon">⇅</span></th>
+                <th data-col="room_type" data-type="text" data-filterable="true">Δωμάτιο <span class="sort-icon">⇅</span></th>
+                <th data-col="deposit_amount" data-type="num">Προκαταβολή <span class="sort-icon">⇅</span></th>
                 <th></th>
+              </tr>
+              <tr class="filter-row" id="waitlist-filter-row">
+                <td><input class="filter-input" data-col="last_name" placeholder="Φίλτρο..." /></td>
+                <td><input class="filter-input" data-col="first_name" placeholder="Φίλτρο..." /></td>
+                <td>
+                  <select class="filter-input" data-col="solo_couple">
+                    <option value="">Όλα</option><option>SOLO</option><option>COUPLE</option>
+                  </select>
+                </td>
+                <td>
+                  <select class="filter-input" data-col="room_type">
+                    <option value="">Όλα</option>
+                    <option>SINGLE</option><option>TWIN</option><option>DOUBLE</option><option>TRIPLE</option>
+                  </select>
+                </td>
+                <td></td><td></td>
               </tr>
             </thead>
             <tbody id="waitlist-tbody"></tbody>
@@ -196,14 +272,13 @@
         </div>
 
       </div>
-
     </main>
   </div>
 
   <!-- ── MODALS ────────────────────────────────────────────── -->
 
   <!-- Modal: New/Edit Trip -->
-  <div id="modal-trip" class="modal-overlay hidden">
+  <div id="modal-trip" class="modal-overlay hidden" data-no-backdrop-close>
     <div class="modal">
       <div class="modal-header">
         <h3 id="modal-trip-title">Νέο Ταξίδι</h3>
@@ -217,11 +292,11 @@
           </div>
           <div class="field-group">
             <label>Από</label>
-            <input type="date" id="trip-date-from" />
+            <input type="date" id="trip-date-from" placeholder="ηη/μμ/εεεε" />
           </div>
           <div class="field-group">
             <label>Έως</label>
-            <input type="date" id="trip-date-to" />
+            <input type="date" id="trip-date-to" placeholder="ηη/μμ/εεεε" />
           </div>
           <div class="field-group">
             <label>Αριθμός Ατόμων</label>
@@ -237,7 +312,7 @@
   </div>
 
   <!-- Modal: New/Edit Customer -->
-  <div id="modal-customer" class="modal-overlay hidden">
+  <div id="modal-customer" class="modal-overlay hidden" data-no-backdrop-close>
     <div class="modal modal-lg">
       <div class="modal-header">
         <h3 id="modal-customer-title">Νέος Πελάτης</h3>
@@ -255,7 +330,7 @@
           </div>
           <div class="field-group">
             <label>Ημ/νία Γέννησης</label>
-            <input type="text" id="cust-dob" placeholder="π.χ. 01/01/1980" />
+            <input type="date" id="cust-dob" placeholder="ηη/μμ/εεεε" />
           </div>
           <div class="field-group">
             <label>Αριθμός Διαβατηρίου</label>
@@ -274,11 +349,11 @@
           </div>
           <div class="field-group">
             <label>Ημ/νία Έκδοσης</label>
-            <input type="date" id="cust-issue-date" />
+            <input type="date" id="cust-issue-date" placeholder="ηη/μμ/εεεε" />
           </div>
           <div class="field-group">
             <label>Ημ/νία Λήξης</label>
-            <input type="date" id="cust-expiry-date" />
+            <input type="date" id="cust-expiry-date" placeholder="ηη/μμ/εεεε" />
           </div>
           <div class="field-group">
             <label>Τηλέφωνο</label>
@@ -301,18 +376,17 @@
     </div>
   </div>
 
-  <!-- Modal: Add Participant -->
-  <div id="modal-participant" class="modal-overlay hidden">
+  <!-- Modal: Add/Edit Participant -->
+  <div id="modal-participant" class="modal-overlay hidden" data-no-backdrop-close>
     <div class="modal modal-lg">
       <div class="modal-header">
         <h3 id="modal-participant-title">Προσθήκη Συμμετέχοντα</h3>
         <button class="modal-close" data-modal="modal-participant">✕</button>
       </div>
       <div class="modal-body">
-        <!-- Customer search -->
         <div class="field-group" style="margin-bottom:1rem">
           <label>Αναζήτηση Πελάτη</label>
-          <input type="text" id="participant-search" placeholder="Πληκτρολογήστε όνομα..." />
+          <input type="text" id="participant-search" placeholder="Πληκτρολογήστε όνομα..." autocomplete="off" />
           <div id="participant-search-results" class="search-dropdown hidden"></div>
         </div>
         <div id="selected-customer-info" class="selected-info hidden"></div>
@@ -337,112 +411,49 @@
             </select>
           </div>
 
-          <!-- Δόση 1 -->
           <div class="field-group subsection-label col-2"><label>Προκαταβολή</label></div>
-          <div class="field-group">
-            <label>Ποσό €</label>
-            <input type="number" id="part-deposit-amount" min="0" />
-          </div>
-          <div class="field-group">
-            <label>Τρόπος Πληρωμής</label>
-            <select id="part-deposit-method">
-              <option value="">— Επιλογή —</option>
-              <optgroup label="Τράπεζα">
-                <option>ALPHA</option><option>EUROBANK</option>
-                <option>ΕΘΝΙΚΗ</option><option>REVOLUT</option><option>E-POS</option>
-              </optgroup>
-              <optgroup label="Μετρητά">
-                <option>ΜΕΤΡΗΤΑ</option><option>ΜΕΤΡΗΤΑ (ΑΠΟΔΕΙΞΗ)</option>
-              </optgroup>
+          <div class="field-group"><label>Ποσό €</label><input type="number" id="part-deposit-amount" min="0" /></div>
+          <div class="field-group"><label>Τρόπος Πληρωμής</label>
+            <select id="part-deposit-method"><option value="">— Επιλογή —</option>
+              <optgroup label="Τράπεζα"><option>ALPHA</option><option>EUROBANK</option><option>ΕΘΝΙΚΗ</option><option>REVOLUT</option><option>E-POS</option></optgroup>
+              <optgroup label="Μετρητά"><option>ΜΕΤΡΗΤΑ</option><option>ΜΕΤΡΗΤΑ (ΑΠΟΔΕΙΞΗ)</option></optgroup>
             </select>
           </div>
-          <div class="field-group">
-            <label>Ημ/νία</label>
-            <input type="date" id="part-deposit-date" />
-          </div>
+          <div class="field-group"><label>Ημ/νία</label><input type="date" id="part-deposit-date" /></div>
 
-          <!-- Δόση 2 -->
           <div class="field-group subsection-label col-2"><label>2η Δόση</label></div>
-          <div class="field-group">
-            <label>Ποσό €</label>
-            <input type="number" id="part-inst2-amount" min="0" />
-          </div>
-          <div class="field-group">
-            <label>Τρόπος Πληρωμής</label>
-            <select id="part-inst2-method">
-              <option value="">— Επιλογή —</option>
-              <optgroup label="Τράπεζα">
-                <option>ALPHA</option><option>EUROBANK</option>
-                <option>ΕΘΝΙΚΗ</option><option>REVOLUT</option><option>E-POS</option>
-              </optgroup>
-              <optgroup label="Μετρητά">
-                <option>ΜΕΤΡΗΤΑ</option><option>ΜΕΤΡΗΤΑ (ΑΠΟΔΕΙΞΗ)</option>
-              </optgroup>
+          <div class="field-group"><label>Ποσό €</label><input type="number" id="part-inst2-amount" min="0" /></div>
+          <div class="field-group"><label>Τρόπος Πληρωμής</label>
+            <select id="part-inst2-method"><option value="">— Επιλογή —</option>
+              <optgroup label="Τράπεζα"><option>ALPHA</option><option>EUROBANK</option><option>ΕΘΝΙΚΗ</option><option>REVOLUT</option><option>E-POS</option></optgroup>
+              <optgroup label="Μετρητά"><option>ΜΕΤΡΗΤΑ</option><option>ΜΕΤΡΗΤΑ (ΑΠΟΔΕΙΞΗ)</option></optgroup>
             </select>
           </div>
-          <div class="field-group">
-            <label>Ημ/νία</label>
-            <input type="date" id="part-inst2-date" />
-          </div>
+          <div class="field-group"><label>Ημ/νία</label><input type="date" id="part-inst2-date" /></div>
 
-          <!-- Δόση 3 -->
           <div class="field-group subsection-label col-2"><label>3η Δόση</label></div>
-          <div class="field-group">
-            <label>Ποσό €</label>
-            <input type="number" id="part-inst3-amount" min="0" />
-          </div>
-          <div class="field-group">
-            <label>Τρόπος Πληρωμής</label>
-            <select id="part-inst3-method">
-              <option value="">— Επιλογή —</option>
-              <optgroup label="Τράπεζα">
-                <option>ALPHA</option><option>EUROBANK</option>
-                <option>ΕΘΝΙΚΗ</option><option>REVOLUT</option><option>E-POS</option>
-              </optgroup>
-              <optgroup label="Μετρητά">
-                <option>ΜΕΤΡΗΤΑ</option><option>ΜΕΤΡΗΤΑ (ΑΠΟΔΕΙΞΗ)</option>
-              </optgroup>
+          <div class="field-group"><label>Ποσό €</label><input type="number" id="part-inst3-amount" min="0" /></div>
+          <div class="field-group"><label>Τρόπος Πληρωμής</label>
+            <select id="part-inst3-method"><option value="">— Επιλογή —</option>
+              <optgroup label="Τράπεζα"><option>ALPHA</option><option>EUROBANK</option><option>ΕΘΝΙΚΗ</option><option>REVOLUT</option><option>E-POS</option></optgroup>
+              <optgroup label="Μετρητά"><option>ΜΕΤΡΗΤΑ</option><option>ΜΕΤΡΗΤΑ (ΑΠΟΔΕΙΞΗ)</option></optgroup>
             </select>
           </div>
-          <div class="field-group">
-            <label>Ημ/νία</label>
-            <input type="date" id="part-inst3-date" />
-          </div>
+          <div class="field-group"><label>Ημ/νία</label><input type="date" id="part-inst3-date" /></div>
 
-          <!-- Δόση 4 -->
           <div class="field-group subsection-label col-2"><label>4η Δόση</label></div>
-          <div class="field-group">
-            <label>Ποσό €</label>
-            <input type="number" id="part-inst4-amount" min="0" />
-          </div>
-          <div class="field-group">
-            <label>Τρόπος Πληρωμής</label>
-            <select id="part-inst4-method">
-              <option value="">— Επιλογή —</option>
-              <optgroup label="Τράπεζα">
-                <option>ALPHA</option><option>EUROBANK</option>
-                <option>ΕΘΝΙΚΗ</option><option>REVOLUT</option><option>E-POS</option>
-              </optgroup>
-              <optgroup label="Μετρητά">
-                <option>ΜΕΤΡΗΤΑ</option><option>ΜΕΤΡΗΤΑ (ΑΠΟΔΕΙΞΗ)</option>
-              </optgroup>
+          <div class="field-group"><label>Ποσό €</label><input type="number" id="part-inst4-amount" min="0" /></div>
+          <div class="field-group"><label>Τρόπος Πληρωμής</label>
+            <select id="part-inst4-method"><option value="">— Επιλογή —</option>
+              <optgroup label="Τράπεζα"><option>ALPHA</option><option>EUROBANK</option><option>ΕΘΝΙΚΗ</option><option>REVOLUT</option><option>E-POS</option></optgroup>
+              <optgroup label="Μετρητά"><option>ΜΕΤΡΗΤΑ</option><option>ΜΕΤΡΗΤΑ (ΑΠΟΔΕΙΞΗ)</option></optgroup>
             </select>
           </div>
-          <div class="field-group">
-            <label>Ημ/νία</label>
-            <input type="date" id="part-inst4-date" />
-          </div>
+          <div class="field-group"><label>Ημ/νία</label><input type="date" id="part-inst4-date" /></div>
 
-          <!-- Υπόλοιπο / Εξόφληση -->
           <div class="field-group subsection-label col-2"><label>Εξόφληση</label></div>
-          <div class="field-group">
-            <label>Υπόλοιπο €</label>
-            <input type="number" id="part-balance" min="0" placeholder="Αυτόματο" />
-          </div>
-          <div class="field-group">
-            <label>Εξόφληση €</label>
-            <input type="number" id="part-final-payment" min="0" />
-          </div>
+          <div class="field-group"><label>Υπόλοιπο €</label><input type="number" id="part-balance" min="0" placeholder="Αυτόματο" /></div>
+          <div class="field-group"><label>Εξόφληση €</label><input type="number" id="part-final-payment" min="0" /></div>
         </div>
       </div>
       <div class="modal-footer">
@@ -453,7 +464,7 @@
   </div>
 
   <!-- Modal: New/Edit Cost -->
-  <div id="modal-cost" class="modal-overlay hidden">
+  <div id="modal-cost" class="modal-overlay hidden" data-no-backdrop-close>
     <div class="modal modal-lg">
       <div class="modal-header">
         <h3 id="modal-cost-title">Νέο Έξοδο</h3>
@@ -489,13 +500,8 @@
             <label>Τρόπος Πληρωμής</label>
             <select id="cost-payment-method">
               <option value="">— Επιλογή —</option>
-              <optgroup label="Τράπεζα">
-                <option>ALPHA</option><option>EUROBANK</option>
-                <option>ΕΘΝΙΚΗ</option><option>REVOLUT</option><option>E-POS</option>
-              </optgroup>
-              <optgroup label="Μετρητά">
-                <option>ΜΕΤΡΗΤΑ</option><option>ΜΕΤΡΗΤΑ (ΑΠΟΔΕΙΞΗ)</option>
-              </optgroup>
+              <optgroup label="Τράπεζα"><option>ALPHA</option><option>EUROBANK</option><option>ΕΘΝΙΚΗ</option><option>REVOLUT</option><option>E-POS</option></optgroup>
+              <optgroup label="Μετρητά"><option>ΜΕΤΡΗΤΑ</option><option>ΜΕΤΡΗΤΑ (ΑΠΟΔΕΙΞΗ)</option></optgroup>
             </select>
           </div>
           <div class="field-group">
