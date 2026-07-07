@@ -154,7 +154,10 @@
                   <td>
                     <select class="filter-input" data-col="solo_couple">
                       <option value="">Όλα</option>
-                      <option>SOLO</option><option>COUPLE</option>
+                      <option>ΦΙΛΟΙ</option><option>ΖΕΥΓΑΡΙ</option>
+                      <option>SOLO</option><option>ΠΑΡΕΑ</option>
+                      <option>ΑΔΕΡΦΙΑ</option><option>ΓΟΝΕΑΣ - ΠΑΙΔΙ</option>
+                      <option>LEADER</option>
                     </select>
                   </td>
                   <td>
@@ -201,9 +204,11 @@
                 <td>
                   <select class="filter-input" data-col="payment_method">
                     <option value="">Όλα</option>
-                    <option>ALPHA</option><option>EUROBANK</option><option>ΕΘΝΙΚΗ</option>
-                    <option>REVOLUT</option><option>E-POS</option>
-                    <option>ΜΕΤΡΗΤΑ</option><option>ΜΕΤΡΗΤΑ (ΑΠΟΔΕΙΞΗ)</option>
+                    <option>ALPHA (ΕΜΒΑΣΜΑ)</option><option>ALPHA (ΚΑΡΤΑ)</option>
+                    <option>EUROBANK (ΕΜΒΑΣΜΑ)</option><option>EUROBANK (ΚΑΡΤΑ)</option>
+                    <option>ΕΘΝΙΚΗ (ΕΜΒΑΣΜΑ)</option><option>ΕΘΝΙΚΗ (ΚΑΡΤΑ)</option>
+                    <option>REVOLUT (ΕΜΒΑΣΜΑ)</option><option>REVOLUT (ΚΑΡΤΑ)</option>
+                    <option>ΜΕΤΡΗΤΑ</option>
                   </select>
                 </td>
                 <td></td>
@@ -255,7 +260,11 @@
                 <td><input class="filter-input" data-col="first_name" placeholder="Φίλτρο..." /></td>
                 <td>
                   <select class="filter-input" data-col="solo_couple">
-                    <option value="">Όλα</option><option>SOLO</option><option>COUPLE</option>
+                    <option value="">Όλα</option>
+                      <option>ΦΙΛΟΙ</option><option>ΖΕΥΓΑΡΙ</option>
+                      <option>SOLO</option><option>ΠΑΡΕΑ</option>
+                      <option>ΑΔΕΡΦΙΑ</option><option>ΓΟΝΕΑΣ - ΠΑΙΔΙ</option>
+                      <option>LEADER</option>
                   </select>
                 </td>
                 <td>
@@ -396,8 +405,13 @@
             <label>Solo / Couple</label>
             <select id="part-solo-couple">
               <option value="">— Επιλογή —</option>
-              <option value="SOLO">SOLO</option>
-              <option value="COUPLE">COUPLE</option>
+              <option>ΦΙΛΟΙ</option>
+              <option>ΖΕΥΓΑΡΙ</option>
+              <option>SOLO</option>
+              <option>ΠΑΡΕΑ</option>
+              <option>ΑΔΕΡΦΙΑ</option>
+              <option>ΓΟΝΕΑΣ - ΠΑΙΔΙ</option>
+              <option>LEADER</option>
             </select>
           </div>
           <div class="field-group">
@@ -500,8 +514,11 @@
             <label>Τρόπος Πληρωμής</label>
             <select id="cost-payment-method">
               <option value="">— Επιλογή —</option>
-              <optgroup label="Τράπεζα"><option>ALPHA</option><option>EUROBANK</option><option>ΕΘΝΙΚΗ</option><option>REVOLUT</option><option>E-POS</option></optgroup>
-              <optgroup label="Μετρητά"><option>ΜΕΤΡΗΤΑ</option><option>ΜΕΤΡΗΤΑ (ΑΠΟΔΕΙΞΗ)</option></optgroup>
+              <optgroup label="ALPHA"><option>ALPHA (ΕΜΒΑΣΜΑ)</option><option>ALPHA (ΚΑΡΤΑ)</option></optgroup>
+              <optgroup label="EUROBANK"><option>EUROBANK (ΕΜΒΑΣΜΑ)</option><option>EUROBANK (ΚΑΡΤΑ)</option></optgroup>
+              <optgroup label="ΕΘΝΙΚΗ"><option>ΕΘΝΙΚΗ (ΕΜΒΑΣΜΑ)</option><option>ΕΘΝΙΚΗ (ΚΑΡΤΑ)</option></optgroup>
+              <optgroup label="REVOLUT"><option>REVOLUT (ΕΜΒΑΣΜΑ)</option><option>REVOLUT (ΚΑΡΤΑ)</option></optgroup>
+              <optgroup label="Μετρητά"><option>ΜΕΤΡΗΤΑ</option></optgroup>
             </select>
           </div>
           <div class="field-group">

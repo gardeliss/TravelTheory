@@ -23,8 +23,18 @@ const state = {
   addingToWaitlist: false,
 };
 
-const BANK_METHODS  = ['ALPHA','EUROBANK','ΕΘΝΙΚΗ','REVOLUT','E-POS'];
-const CASH_METHODS  = ['ΜΕΤΡΗΤΑ','ΜΕΤΡΗΤΑ (ΑΠΟΔΕΙΞΗ)'];
+// Εισπράξεις (trip_participants)
+const INCOME_BANK_METHODS = ['ALPHA','EUROBANK','ΕΘΝΙΚΗ','REVOLUT','E-POS'];
+const INCOME_CASH_METHODS = ['ΜΕΤΡΗΤΑ','ΜΕΤΡΗΤΑ (ΑΠΟΔΕΙΞΗ)'];
+
+// Έξοδα (trip_costs)
+const EXPENSE_BANK_METHODS = [
+  'ALPHA (ΕΜΒΑΣΜΑ)','ALPHA (ΚΑΡΤΑ)',
+  'EUROBANK (ΕΜΒΑΣΜΑ)','EUROBANK (ΚΑΡΤΑ)',
+  'ΕΘΝΙΚΗ (ΕΜΒΑΣΜΑ)','ΕΘΝΙΚΗ (ΚΑΡΤΑ)',
+  'REVOLUT (ΕΜΒΑΣΜΑ)','REVOLUT (ΚΑΡΤΑ)'
+];
+const EXPENSE_CASH_METHODS = ['ΜΕΤΡΗΤΑ'];
 
 const TASK_DEFINITIONS = [
   { key: 'viber_group',         label: 'Viber Group' },
