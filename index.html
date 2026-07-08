@@ -124,6 +124,7 @@
           <button class="tab" data-tab="pricing">Τιμές</button>
           <button class="tab" data-tab="tasks">Tasks</button>
           <button class="tab" data-tab="waitlist">Εφεδρικοί</button>
+          <button class="tab" data-tab="rooms">Room Plan</button>
         </div>
 
         <!-- Tab: Participants -->
@@ -465,6 +466,14 @@
           </div>
           <div class="field-group"><label>Ημ/νία</label><input type="date" id="part-inst4-date" /></div>
 
+          <div class="field-group subsection-label col-2"><label>Ανάθεση Δωματίου</label></div>
+          <div class="field-group col-2">
+            <label>Δωμάτιο</label>
+            <select id="part-room-id">
+              <option value="">— Χωρίς δωμάτιο —</option>
+            </select>
+          </div>
+
           <div class="field-group subsection-label col-2"><label>Εξόφληση</label></div>
           <div class="field-group"><label>Υπόλοιπο €</label><input type="number" id="part-balance" min="0" placeholder="Αυτόματο" /></div>
           <div class="field-group"><label>Εξόφληση €</label><input type="number" id="part-final-payment" min="0" /></div>
@@ -544,6 +553,73 @@
       <div class="modal-footer">
         <button class="btn btn-ghost" data-modal="modal-cost">Άκυρο</button>
         <button class="btn btn-primary" id="btn-save-cost">Αποθήκευση</button>
+      </div>
+    </div>
+  </div>
+
+        <!-- Tab: Rooms -->
+        <div id="tab-rooms" class="tab-panel hidden">
+          <div class="panel-toolbar">
+            <button class="btn btn-primary btn-sm" id="btn-add-room">+ Νέο Δωμάτιο</button>
+          </div>
+          <div id="rooms-content"></div>
+        </div>
+
+  <!-- Modal: New/Edit Room -->
+  <div id="modal-room" class="modal-overlay hidden" data-no-backdrop-close>
+    <div class="modal">
+      <div class="modal-header">
+        <h3 id="modal-room-title">Νέο Δωμάτιο</h3>
+        <button class="modal-close" data-modal="modal-room">✕</button>
+      </div>
+      <div class="modal-body">
+        <div class="form-grid">
+          <div class="field-group">
+            <label>Αριθμός / Κωδικός Δωματίου</label>
+            <input type="text" id="room-number" placeholder="π.χ. 101, A, Ήρα" />
+          </div>
+          <div class="field-group">
+            <label>Τύπος Δωματίου</label>
+            <select id="room-type">
+              <option value="">— Επιλογή —</option>
+              <option value="SINGLE">SINGLE (1 άτομο)</option>
+              <option value="TWIN">TWIN (2 άτομα)</option>
+              <option value="DOUBLE">DOUBLE (2 άτομα)</option>
+              <option value="TRIPLE">TRIPLE (3 άτομα)</option>
+            </select>
+          </div>
+          <div class="field-group col-2">
+            <label>Σημειώσεις</label>
+            <input type="text" id="room-notes" placeholder="π.χ. sea view, 2ος όροφος..." />
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-ghost" data-modal="modal-room">Άκυρο</button>
+        <button class="btn btn-primary" id="btn-save-room">Αποθήκευση</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal: Assign participant to room -->
+  <div id="modal-assign-room" class="modal-overlay hidden" data-no-backdrop-close>
+    <div class="modal">
+      <div class="modal-header">
+        <h3>Ανάθεση Συμμετέχοντα</h3>
+        <button class="modal-close" data-modal="modal-assign-room">✕</button>
+      </div>
+      <div class="modal-body">
+        <input type="hidden" id="assign-room-id" />
+        <div class="field-group">
+          <label>Επιλογή Συμμετέχοντα (αδιάθετοι)</label>
+          <select id="assign-participant-select">
+            <option value="">— Επιλογή —</option>
+          </select>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-ghost" data-modal="modal-assign-room">Άκυρο</button>
+        <button class="btn btn-primary" id="btn-save-room-assignment">Ανάθεση</button>
       </div>
     </div>
   </div>

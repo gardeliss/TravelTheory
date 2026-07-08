@@ -18,6 +18,7 @@ const state = {
   currentWaitlist: [],
   currentCosts: [],
   currentTasks: [],
+  currentRooms: [],
   editingId: null,
   selectedCustomerId: null,
   addingToWaitlist: false,
@@ -386,6 +387,7 @@ async function saveParticipant() {
     trip_id:              state.currentTrip.id,
     customer_id:          state.selectedCustomerId,
     is_waitlist:          state.addingToWaitlist,
+    room_id:              document.getElementById('part-room-id')?.value || null,
     solo_couple:          document.getElementById('part-solo-couple').value  || null,
     room_type:            document.getElementById('part-room-type').value    || null,
     deposit_amount:       dep,
@@ -459,6 +461,9 @@ async function editParticipant(id) {
   $('part-inst4-method').value     = p.installment4_method || '';
   $('part-inst4-date').value       = p.installment4_date   || '';
   $('part-balance').value          = p.balance       || '';
+  await populateRoomDropdown();
+  const roomEl = document.getElementById('part-room-id');
+  if (roomEl) roomEl.value = p.room_id || '';
   $('part-final-payment').value    = p.final_payment || '';
 
   openModal('modal-participant');
@@ -715,6 +720,210 @@ async function updateTask(id, field, value) {
   }
 }
 
+
+// ── ROOMS ─────────────────────────────────────────────────────
+async function loadRooms() {
+  const { data, error } = await db
+    .from('room_plan')
+    .select('*')
+    .eq('trip_id', state.currentTrip.id)
+    .order('room_number');
+
+  if (error) return toast('Σφάλμα φόρτωσης δωματίων', 'error');
+  state.currentRooms = data || [];
+
+  // Also load full participant list per room
+  await loadRoomsWithParticipants();
+}
+
+async function loadRoomsWithParticipants() {
+  const { data: participants, error } = await db
+    .from('trip_participants')
+    .select('id, room_id, customers(first_name, last_name), solo_couple')
+    .eq('trip_id', state.currentTrip.id)
+    .eq('is_waitlist', false);
+
+  if (error) return toast('Σφάλμα φόρτωσης', 'error');
+
+  renderRooms(participants || []);
+}
+
+function renderRooms(participants) {
+  const container = document.getElementById('rooms-content');
+  if (!container) return;
+
+  if (!state.currentRooms.length) {
+    container.innerHTML = `
+      <div class="rooms-empty">
+        <p>Δεν υπάρχουν δωμάτια ακόμα.</p>
+        <p style="color:var(--text3);font-size:.85rem;margin-top:.3rem">Πατήστε "+ Νέο Δωμάτιο" για να ξεκινήσετε.</p>
+      </div>`;
+    return;
+  }
+
+  const ROOM_ICONS = { SINGLE: '🛏', TWIN: '🛏🛏', DOUBLE: '💑', TRIPLE: '👨‍👩‍👦' };
+  const STATUS_CLASS = { 'ΠΛΗΡΕΣ': 'badge-green', 'ΜΕΡΙΚΩΣ': 'badge-yellow', 'ΑΔΕΙΟ': 'badge-gray', 'ΥΠΕΡΑΡΙΘΜΟ': 'badge-danger' };
+
+  // Summary bar
+  const total    = state.currentRooms.length;
+  const full     = state.currentRooms.filter(r => r.status === 'ΠΛΗΡΕΣ').length;
+  const partial  = state.currentRooms.filter(r => r.status === 'ΜΕΡΙΚΩΣ').length;
+  const empty    = state.currentRooms.filter(r => r.status === 'ΑΔΕΙΟ').length;
+  const totalOcc = state.currentRooms.reduce((s, r) => s + Number(r.current_occupancy), 0);
+
+  container.innerHTML = `
+    <div class="rooms-summary">
+      <div class="rooms-summary-item"><span class="rooms-summary-label">Σύνολο Δωματίων</span><span class="rooms-summary-value">${total}</span></div>
+      <div class="rooms-summary-item"><span class="rooms-summary-label">Πλήρη</span><span class="rooms-summary-value" style="color:var(--success)">${full}</span></div>
+      <div class="rooms-summary-item"><span class="rooms-summary-label">Μερικώς</span><span class="rooms-summary-value" style="color:var(--warning)">${partial}</span></div>
+      <div class="rooms-summary-item"><span class="rooms-summary-label">Άδεια</span><span class="rooms-summary-value" style="color:var(--text3)">${empty}</span></div>
+      <div class="rooms-summary-item"><span class="rooms-summary-label">Σύνολο Ατόμων</span><span class="rooms-summary-value">${totalOcc}</span></div>
+    </div>
+    <div class="rooms-grid">
+      ${state.currentRooms.map(room => {
+        const roomParticipants = participants.filter(p => p.room_id === room.room_id);
+        const spotsLeft = Number(room.available_spots);
+        const icon = ROOM_ICONS[room.room_type] || '🛏';
+        const statusClass = STATUS_CLASS[room.status] || 'badge-gray';
+
+        return `
+          <div class="room-card">
+            <div class="room-card-header">
+              <div class="room-card-title">
+                <span class="room-icon">${icon}</span>
+                <span>Δωμάτιο ${esc(room.room_number)}</span>
+                <span class="badge ${statusClass}" style="margin-left:.5rem">${room.status}</span>
+              </div>
+              <div class="room-card-actions">
+                <button class="btn-icon" onclick="editRoom('${room.room_id}')">✏️</button>
+                <button class="btn-icon danger" onclick="deleteRoom('${room.room_id}')">🗑</button>
+              </div>
+            </div>
+            <div class="room-card-type">${room.room_type} — ${room.current_occupancy}/${room.max_occupancy} άτομα</div>
+            ${room.notes ? `<div class="room-card-notes">${esc(room.notes)}</div>` : ''}
+            <div class="room-participants">
+              ${roomParticipants.length
+                ? roomParticipants.map(p => `
+                    <div class="room-participant-row">
+                      <span class="room-participant-name">
+                        ${p.customers ? esc(p.customers.last_name) + ' ' + esc(p.customers.first_name) : '—'}
+                      </span>
+                      <span class="badge badge-gray" style="font-size:.72rem">${p.solo_couple || ''}</span>
+                      <button class="btn-icon danger" style="margin-left:auto" onclick="removeFromRoom('${p.id}')" title="Αφαίρεση από δωμάτιο">✕</button>
+                    </div>`).join('')
+                : '<div class="room-participant-empty">Κανένας συμμετέχων ακόμα</div>'
+              }
+              ${spotsLeft > 0
+                ? `<button class="room-add-btn" onclick="openAddToRoom('${room.room_id}')">+ Προσθήκη ατόμου (${spotsLeft} θέσεις)</button>`
+                : ''
+              }
+            </div>
+          </div>
+        `;
+      }).join('')}
+    </div>
+  `;
+}
+
+async function saveRoom() {
+  const number = document.getElementById('room-number').value.trim();
+  const type   = document.getElementById('room-type').value;
+  const notes  = document.getElementById('room-notes').value.trim();
+
+  if (!number || !type) return toast('Συμπληρώστε αριθμό και τύπο δωματίου', 'error');
+
+  const payload = { trip_id: state.currentTrip.id, room_number: number, room_type: type, notes: notes || null };
+
+  let error;
+  if (state.editingId) {
+    ({ error } = await db.from('trip_rooms').update(payload).eq('id', state.editingId));
+  } else {
+    ({ error } = await db.from('trip_rooms').insert(payload));
+  }
+
+  if (error) return toast('Σφάλμα' + (error.message?.includes('unique') ? ': Υπάρχει ήδη δωμάτιο με αυτόν τον αριθμό' : ''), 'error');
+  toast(state.editingId ? 'Δωμάτιο ενημερώθηκε' : 'Δωμάτιο δημιουργήθηκε', 'success');
+  closeModal('modal-room');
+  loadRooms();
+}
+
+async function editRoom(id) {
+  const room = state.currentRooms.find(r => r.room_id === id);
+  if (!room) return;
+  state.editingId = id;
+  setText('modal-room-title', 'Επεξεργασία Δωματίου');
+  document.getElementById('room-number').value = room.room_number || '';
+  document.getElementById('room-type').value   = room.room_type   || '';
+  document.getElementById('room-notes').value  = room.notes       || '';
+  openModal('modal-room');
+}
+
+async function deleteRoom(id) {
+  if (!confirm('Διαγραφή δωματίου; Οι συμμετέχοντες δεν θα διαγραφούν, απλώς θα αποσυνδεθούν.')) return;
+  const { error } = await db.from('trip_rooms').delete().eq('id', id);
+  if (error) return toast('Σφάλμα διαγραφής', 'error');
+  toast('Δωμάτιο διαγράφηκε', 'success');
+  loadRooms();
+}
+
+async function removeFromRoom(participantId) {
+  const { error } = await db.from('trip_participants').update({ room_id: null }).eq('id', participantId);
+  if (error) return toast('Σφάλμα', 'error');
+  loadRooms();
+}
+
+// Open modal to assign an unassigned participant to a room
+async function openAddToRoom(roomId) {
+  // Get unassigned participants for this trip
+  const { data, error } = await db
+    .from('trip_participants')
+    .select('id, customers(first_name, last_name)')
+    .eq('trip_id', state.currentTrip.id)
+    .eq('is_waitlist', false)
+    .is('room_id', null);
+
+  if (error) return toast('Σφάλμα', 'error');
+
+  const select = document.getElementById('assign-participant-select');
+  if (!data.length) {
+    toast('Δεν υπάρχουν αδιάθετοι συμμετέχοντες', 'error');
+    return;
+  }
+
+  select.innerHTML = '<option value="">— Επιλογή —</option>' +
+    data.map(p => `<option value="${p.id}">${p.customers ? esc(p.customers.last_name) + ' ' + esc(p.customers.first_name) : p.id}</option>`).join('');
+
+  document.getElementById('assign-room-id').value = roomId;
+  openModal('modal-assign-room');
+}
+
+async function saveRoomAssignment() {
+  const participantId = document.getElementById('assign-participant-select').value;
+  const roomId        = document.getElementById('assign-room-id').value;
+  if (!participantId) return toast('Επιλέξτε συμμετέχοντα', 'error');
+
+  const { error } = await db.from('trip_participants').update({ room_id: roomId }).eq('id', participantId);
+  if (error) return toast('Σφάλμα ανάθεσης', 'error');
+  toast('Ανατέθηκε', 'success');
+  closeModal('modal-assign-room');
+  loadRooms();
+}
+
+function resetRoomForm() {
+  ['room-number','room-type','room-notes'].forEach(id => { const el = document.getElementById(id); if(el) el.value = ''; });
+  setText('modal-room-title', 'Νέο Δωμάτιο');
+  state.editingId = null;
+}
+
+// Populate room dropdown in participant modal
+async function populateRoomDropdown() {
+  const select = document.getElementById('part-room-id');
+  if (!select) return;
+  const { data } = await db.from('trip_rooms').select('id, room_number, room_type').eq('trip_id', state.currentTrip.id).order('room_number');
+  select.innerHTML = '<option value="">— Χωρίς δωμάτιο —</option>' +
+    (data || []).map(r => `<option value="${r.id}">${r.room_number} (${r.room_type})</option>`).join('');
+}
+
 // ── TABS ─────────────────────────────────────────────────────
 function switchTab(tabName) {
   document.querySelectorAll('.tab-panel').forEach(p => p.classList.add('hidden'));
@@ -739,6 +948,7 @@ function switchTab(tabName) {
     loadWaitlist();
     initSortableTable('waitlist-table', () => state.currentWaitlist, renderWaitlistRows);
   }
+  if (tabName === 'rooms') loadRooms();
 }
 
 // ── MODAL HELPERS ─────────────────────────────────────────────
@@ -765,7 +975,7 @@ function resetCustomerForm() {
 }
 
 function resetParticipantForm() {
-  ['part-solo-couple','part-room-type',
+  ['part-solo-couple','part-room-type','part-room-id',
    'part-deposit-amount','part-deposit-method','part-deposit-date',
    'part-inst2-amount','part-inst2-method','part-inst2-date',
    'part-inst3-amount','part-inst3-method','part-inst3-date',
@@ -849,6 +1059,7 @@ function bindStaticEvents() {
   $('btn-add-participant').addEventListener('click', () => {
     resetParticipantForm();
     state.addingToWaitlist = false;
+    populateRoomDropdown();
     openModal('modal-participant');
   });
 
@@ -856,6 +1067,7 @@ function bindStaticEvents() {
   document.getElementById('btn-add-waitlist')?.addEventListener('click', () => {
     resetParticipantForm();
     state.addingToWaitlist = true;
+    populateRoomDropdown();
     setText('modal-participant-title', 'Προσθήκη Εφεδρικού');
     openModal('modal-participant');
   });
@@ -891,6 +1103,15 @@ function bindStaticEvents() {
       }
     });
   });
+
+  // New room
+  document.getElementById('btn-add-room')?.addEventListener('click', () => {
+    resetRoomForm();
+    openModal('modal-room');
+  });
+
+  document.getElementById('btn-save-room')?.addEventListener('click', saveRoom);
+  document.getElementById('btn-save-room-assignment')?.addEventListener('click', saveRoomAssignment);
 
   // Password toggle
   document.getElementById('toggle-password')?.addEventListener('click', () => {
