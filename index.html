@@ -125,6 +125,7 @@
           <button class="tab" data-tab="tasks">Tasks</button>
           <button class="tab" data-tab="waitlist">Εφεδρικοί</button>
           <button class="tab" data-tab="rooms">Room Plan</button>
+          <button class="tab" data-tab="receipts">Αποδείξεις / Τιμολόγια</button>
         </div>
 
         <!-- Tab: Participants -->
@@ -289,6 +290,29 @@
           <div id="rooms-content"></div>
         </div>
 
+        <!-- Tab: Receipts -->
+        <div id="tab-receipts" class="tab-panel hidden">
+          <div id="receipts-table-wrap">
+            <table class="data-table" id="receipts-table">
+              <thead>
+                <tr>
+                  <th style="width:40px">Νο.</th>
+                  <th>Όνομα</th>
+                  <th>Επώνυμο</th>
+                  <th>ΑΦΜ</th>
+                  <th>Διεύθυνση</th>
+                  <th>ΤΚ</th>
+                  <th>Ποσό €</th>
+                  <th>Επιβεβαίωση</th>
+                  <th>Αριθμός</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody id="receipts-tbody"></tbody>
+            </table>
+          </div>
+        </div>
+
       </div>
     </main>
   </div>
@@ -380,6 +404,18 @@
           <div class="field-group">
             <label>Email</label>
             <input type="email" id="cust-email" />
+          </div>
+          <div class="field-group">
+            <label>ΑΦΜ</label>
+            <input type="text" id="cust-afm" />
+          </div>
+          <div class="field-group">
+            <label>ΤΚ</label>
+            <input type="text" id="cust-postal-code" />
+          </div>
+          <div class="field-group col-2">
+            <label>Διεύθυνση</label>
+            <input type="text" id="cust-address" />
           </div>
           <div class="field-group col-2">
             <label>Σημειώσεις</label>
@@ -620,6 +656,52 @@
       <div class="modal-footer">
         <button class="btn btn-ghost" data-modal="modal-assign-room">Άκυρο</button>
         <button class="btn btn-primary" id="btn-save-room-assignment">Ανάθεση</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal: Edit Receipt -->
+  <div id="modal-receipt" class="modal-overlay hidden" data-no-backdrop-close>
+    <div class="modal">
+      <div class="modal-header">
+        <h3>Απόδειξη / Τιμολόγιο — <span id="modal-receipt-name" style="color:var(--accent)"></span></h3>
+        <button class="modal-close" data-modal="modal-receipt">✕</button>
+      </div>
+      <div class="modal-body">
+        <div class="form-grid">
+          <div class="field-group col-2">
+            <label>ΑΦΜ <span style="color:var(--text3);font-size:.75rem">(από πελατολόγιο, μη επεξεργάσιμο εδώ)</span></label>
+            <input type="text" id="receipt-afm" readonly style="background:var(--bg3);cursor:not-allowed" />
+          </div>
+          <div class="field-group col-2">
+            <label>Διεύθυνση <span style="color:var(--accent);font-size:.75rem">✎ override για αυτό το ταξίδι</span></label>
+            <input type="text" id="receipt-address" placeholder="π.χ. Αθήνα 1, Αθήνα" />
+          </div>
+          <div class="field-group">
+            <label>ΤΚ <span style="color:var(--accent);font-size:.75rem">✎ override</span></label>
+            <input type="text" id="receipt-postal-code" placeholder="π.χ. 10431" />
+          </div>
+          <div class="field-group">
+            <label>Ποσό €</label>
+            <input type="number" id="receipt-amount" min="0" />
+          </div>
+          <div class="field-group">
+            <label>Επιβεβαίωση</label>
+            <select id="receipt-type">
+              <option value="">— Επιλογή —</option>
+              <option value="ΑΠΟΔΕΙΞΗ">ΑΠΟΔΕΙΞΗ</option>
+              <option value="ΤΙΜΟΛΟΓΙΟ">ΤΙΜΟΛΟΓΙΟ</option>
+            </select>
+          </div>
+          <div class="field-group">
+            <label>Αριθμός</label>
+            <input type="text" id="receipt-number" placeholder="π.χ. 1234" />
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-ghost" data-modal="modal-receipt">Άκυρο</button>
+        <button class="btn btn-primary" id="btn-save-receipt">Αποθήκευση</button>
       </div>
     </div>
   </div>

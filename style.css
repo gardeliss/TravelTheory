@@ -774,3 +774,8 @@ input[type="date"]::-webkit-calendar-picker-indicator {
 .room-add-btn:hover { background: rgba(61,126,255,.07); }
 
 .badge-danger { background: rgba(220,38,38,.12); color: #dc2626; }
+
+/* ── RECEIPTS ────────────────────────────────────────────────── */
+#receipts-table-wrap { overflow-x: auto; }
+
+.badge-blue { background: rgba(61,126,255,.12); color: #2563d4; }

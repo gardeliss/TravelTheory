@@ -245,13 +245,16 @@ async function saveCustomer() {
   const payload = {
     first_name:      $('cust-first-name').value.trim(),
     last_name:       $('cust-last-name').value.trim(),
-    date_of_birth:   $('cust-dob').value.trim(),
+    date_of_birth:   $('cust-dob').value || null,
     passport_number: $('cust-passport').value.trim(),
     nationality:     $('cust-nationality').value,
     issue_date:      $('cust-issue-date').value || null,
     expiry_date:     $('cust-expiry-date').value || null,
     telephone:       $('cust-telephone').value.trim(),
     email:           $('cust-email').value.trim(),
+    afm:             $('cust-afm').value.trim()          || null,
+    address:         $('cust-address').value.trim()      || null,
+    postal_code:     $('cust-postal-code').value.trim()  || null,
     notes:           $('cust-notes').value.trim(),
   };
 
@@ -288,6 +291,9 @@ async function editCustomer(id) {
   $('cust-expiry-date').value  = c.expiry_date || '';
   $('cust-telephone').value    = c.telephone   || '';
   $('cust-email').value        = c.email       || '';
+  $('cust-afm').value          = c.afm         || '';
+  $('cust-address').value      = c.address     || '';
+  $('cust-postal-code').value  = c.postal_code || '';
   $('cust-notes').value        = c.notes       || '';
   openModal('modal-customer');
 }
@@ -924,6 +930,124 @@ async function populateRoomDropdown() {
     (data || []).map(r => `<option value="${r.id}">${r.room_number} (${r.room_type})</option>`).join('');
 }
 
+
+// ── RECEIPTS ──────────────────────────────────────────────────
+async function loadReceipts() {
+  const { data, error } = await db
+    .from('trip_participants')
+    .select(`
+      id, receipt_address, receipt_postal_code,
+      receipt_amount, receipt_type, receipt_number,
+      customers(first_name, last_name, afm, address, postal_code)
+    `)
+    .eq('trip_id', state.currentTrip.id)
+    .eq('is_waitlist', false)
+    .order('created_at');
+
+  if (error) return toast('Σφάλμα φόρτωσης', 'error');
+  renderReceipts(data || []);
+}
+
+function renderReceipts(rows) {
+  const tbody = document.getElementById('receipts-tbody');
+  if (!tbody) return;
+
+  if (!rows.length) {
+    tbody.innerHTML = '<tr><td colspan="9" style="color:var(--text3);text-align:center;padding:1.5rem">Δεν υπάρχουν συμμετέχοντες.</td></tr>';
+    return;
+  }
+
+  tbody.innerHTML = rows.map((p, idx) => {
+    const c = p.customers || {};
+    // Use override if set, else fall back to customer data
+    const addr       = p.receipt_address     || c.address     || '';
+    const postalCode = p.receipt_postal_code || c.postal_code || '';
+
+    return `
+      <tr>
+        <td style="text-align:center;color:var(--text3);font-size:.8rem">${idx + 1}</td>
+        <td>${esc(c.first_name || '—')}</td>
+        <td>${esc(c.last_name  || '—')}</td>
+        <td>${esc(c.afm        || '—')}</td>
+        <td>${esc(addr         || '—')}</td>
+        <td>${esc(postalCode   || '—')}</td>
+        <td>${p.receipt_amount ? formatEur(p.receipt_amount) : '—'}</td>
+        <td>
+          ${p.receipt_type
+            ? `<span class="badge ${p.receipt_type === 'ΤΙΜΟΛΟΓΙΟ' ? 'badge-blue' : 'badge-gray'}">${p.receipt_type}</span>`
+            : '—'}
+        </td>
+        <td>${esc(p.receipt_number || '—')}</td>
+        <td>
+          <button class="btn-icon" onclick="editReceipt('${p.id}')">✏️</button>
+        </td>
+      </tr>
+    `;
+  }).join('');
+}
+
+async function editReceipt(participantId) {
+  // Load participant + customer data
+  const { data, error } = await db
+    .from('trip_participants')
+    .select(`
+      id, receipt_address, receipt_postal_code,
+      receipt_amount, receipt_type, receipt_number,
+      customers(first_name, last_name, afm, address, postal_code)
+    `)
+    .eq('id', participantId)
+    .single();
+
+  if (error) return toast('Σφάλμα φόρτωσης', 'error');
+
+  const c = data.customers || {};
+  state.editingId = participantId;
+
+  // Header with name
+  setText('modal-receipt-name', `${c.last_name || ''} ${c.first_name || ''}`);
+
+  // Pre-fill from customer, allow override
+  document.getElementById('receipt-afm').value          = c.afm          || '';
+  document.getElementById('receipt-address').value      = data.receipt_address     || c.address     || '';
+  document.getElementById('receipt-postal-code').value  = data.receipt_postal_code || c.postal_code || '';
+  document.getElementById('receipt-amount').value       = data.receipt_amount      || '';
+  document.getElementById('receipt-type').value         = data.receipt_type        || '';
+  document.getElementById('receipt-number').value       = data.receipt_number      || '';
+
+  // Store original customer values for reset
+  document.getElementById('receipt-address').dataset.original     = c.address     || '';
+  document.getElementById('receipt-postal-code').dataset.original = c.postal_code || '';
+
+  openModal('modal-receipt');
+}
+
+async function saveReceipt() {
+  const participantId = state.editingId;
+  if (!participantId) return;
+
+  const address    = document.getElementById('receipt-address').value.trim();
+  const postalCode = document.getElementById('receipt-postal-code').value.trim();
+
+  // Only save override if different from customer original
+  const origAddress = document.getElementById('receipt-address').dataset.original     || '';
+  const origPostal  = document.getElementById('receipt-postal-code').dataset.original || '';
+
+  const payload = {
+    receipt_address:     address    !== origAddress ? address    : null,
+    receipt_postal_code: postalCode !== origPostal  ? postalCode : null,
+    receipt_amount:      parseInt(document.getElementById('receipt-amount').value) || 0,
+    receipt_type:        document.getElementById('receipt-type').value   || null,
+    receipt_number:      document.getElementById('receipt-number').value.trim() || null,
+  };
+
+  const { error } = await db.from('trip_participants').update(payload).eq('id', participantId);
+  if (error) return toast('Σφάλμα αποθήκευσης', 'error');
+
+  toast('Αποθηκεύτηκε', 'success');
+  closeModal('modal-receipt');
+  loadReceipts();
+}
+
 // ── TABS ─────────────────────────────────────────────────────
 function switchTab(tabName) {
   document.querySelectorAll('.tab-panel').forEach(p => p.classList.add('hidden'));
@@ -948,7 +1072,8 @@ function switchTab(tabName) {
     loadWaitlist();
     initSortableTable('waitlist-table', () => state.currentWaitlist, renderWaitlistRows);
   }
-  if (tabName === 'rooms') loadRooms();
+  if (tabName === 'rooms')    loadRooms();
+  if (tabName === 'receipts') loadReceipts();
 }
 
 // ── MODAL HELPERS ─────────────────────────────────────────────
@@ -968,7 +1093,8 @@ function resetTripForm() {
 
 function resetCustomerForm() {
   ['cust-first-name','cust-last-name','cust-dob','cust-passport','cust-issue-date',
-   'cust-expiry-date','cust-telephone','cust-email','cust-notes'].forEach(id => { $(id).value = ''; });
+   'cust-expiry-date','cust-telephone','cust-email','cust-afm','cust-address',
+   'cust-postal-code','cust-notes'].forEach(id => { $(id).value = ''; });
   $('cust-nationality').value = '';
   setText('modal-customer-title', 'Νέος Πελάτης');
   state.editingId = null;
@@ -1112,6 +1238,7 @@ function bindStaticEvents() {
 
   document.getElementById('btn-save-room')?.addEventListener('click', saveRoom);
   document.getElementById('btn-save-room-assignment')?.addEventListener('click', saveRoomAssignment);
+  document.getElementById('btn-save-receipt')?.addEventListener('click', saveReceipt);
 
   // Password toggle
   document.getElementById('toggle-password')?.addEventListener('click', () => {
