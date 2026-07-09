@@ -50,7 +50,25 @@ async function loadUserProfile() {
     .select('role, custom_permissions')
     .eq('id', state.user.id)
     .single();
-  if (error) { console.error('Profile load error:', error); return; }
+
+  if (error || !data) {
+    console.warn('Profile not found, creating default admin profile...');
+    // Auto-create profile as admin if missing (first user scenario)
+    const { data: inserted, error: insertError } = await db
+      .from('user_profiles')
+      .upsert({ id: state.user.id, email: state.user.email, role: 'admin' })
+      .select('role, custom_permissions')
+      .single();
+
+    if (insertError) {
+      console.error('Profile create error:', insertError);
+      // Last resort fallback — treat as admin so app is usable
+      state.userProfile = { role: 'admin', custom_permissions: {} };
+    } else {
+      state.userProfile = inserted;
+    }
+    return;
+  }
   state.userProfile = data;
 }
 
