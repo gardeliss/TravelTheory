@@ -902,26 +902,28 @@ async function saveUser() {
     toast('Χρήστης ενημερώθηκε', 'success');
 
   } else {
-    // New: create auth user via Supabase admin API
+    // New: create user via Edge Function (service_role stays server-side)
     if (!email) return toast('Εισάγετε email', 'error');
     const password = document.getElementById('user-password').value;
     if (!password || password.length < 6) return toast('Ο κωδικός πρέπει να έχει τουλάχιστον 6 χαρακτήρες', 'error');
 
-    // Use signUp — profile created automatically via trigger
-    const { data: signUpData, error: signUpError } = await db.auth.admin
-      ? await db.auth.admin.createUser({ email, password, email_confirm: true })
-      : { error: { message: 'Admin API not available' } };
+    const { data: { session } } = await db.auth.getSession();
+    const accessToken = session?.access_token;
 
-    // Fallback: use standard signUp (will create profile via trigger)
-    if (signUpError) {
-      // Try service role workaround via edge function — for now use direct insert approach
-      toast('Σφάλμα δημιουργίας: ' + signUpError.message, 'error');
+    const res = await fetch(`${SUPABASE_URL}/functions/v1/create-user`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${accessToken}`,
+        'apikey': SUPABASE_KEY,
+      },
+      body: JSON.stringify({ email, password, role, custom_permissions: custom }),
+    });
+
+    const result = await res.json();
+    if (!res.ok || result.error) {
+      toast('Σφάλμα: ' + (result.error || 'Άγνωστο σφάλμα'), 'error');
       return;
-    }
-
-    const newUserId = signUpData?.user?.id;
-    if (newUserId) {
-      await db.from('user_profiles').update({ role, custom_permissions: custom }).eq('id', newUserId);
     }
     toast('Χρήστης δημιουργήθηκε', 'success');
   }
