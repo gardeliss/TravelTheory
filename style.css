@@ -779,3 +779,75 @@ input[type="date"]::-webkit-calendar-picker-indicator {
 #receipts-table-wrap { overflow-x: auto; }
 
 .badge-blue { background: rgba(61,126,255,.12); color: #2563d4; }
+
+/* ── USER MANAGEMENT ─────────────────────────────────────────── */
+#users-table-wrap { overflow-x: auto; }
+
+.permissions-section {
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  overflow: hidden;
+}
+
+.permissions-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: .6rem 1rem;
+  background: var(--bg3);
+  border-bottom: 1px solid var(--border);
+  font-size: .82rem;
+  font-weight: 600;
+  color: var(--text2);
+}
+
+.permissions-note {
+  font-size: .75rem;
+  font-weight: 400;
+  color: var(--text3);
+}
+
+.permissions-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 0;
+  padding: .5rem;
+}
+
+.perm-checkbox {
+  display: flex;
+  align-items: center;
+  gap: .5rem;
+  padding: .5rem .6rem;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: .84rem;
+  color: var(--text);
+  transition: background .1s;
+  user-select: none;
+}
+
+.perm-checkbox:hover { background: var(--bg3); }
+
+.perm-checkbox.perm-default {
+  opacity: .65;
+  cursor: not-allowed;
+}
+
+.perm-checkbox input[type="checkbox"] {
+  width: 15px;
+  height: 15px;
+  accent-color: var(--accent);
+  cursor: inherit;
+  flex-shrink: 0;
+}
+
+.perm-tag {
+  font-size: .68rem;
+  padding: .1rem .35rem;
+  border-radius: 10px;
+  background: rgba(61,126,255,.12);
+  color: var(--accent);
+  font-weight: 500;
+  margin-left: auto;
+}

@@ -59,6 +59,9 @@
         <button class="nav-item" data-view="customers">
           <span class="nav-icon">👥</span> Πελατολόγιο
         </button>
+        <button class="nav-item" data-view="users" id="nav-users" style="display:none">
+          <span class="nav-icon">🔐</span> Χρήστες
+        </button>
       </nav>
       <div class="sidebar-footer">
         <span id="user-email-display"></span>
@@ -101,6 +104,28 @@
               </tr>
             </thead>
             <tbody id="customers-tbody"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- ── VIEW: USERS ────────────────────────────────────── -->
+      <div id="view-users" class="view hidden">
+        <div class="view-header">
+          <h2>Διαχείριση Χρηστών</h2>
+          <button class="btn btn-primary" id="btn-new-user">+ Νέος Χρήστης</button>
+        </div>
+        <div id="users-table-wrap">
+          <table class="data-table" id="users-table">
+            <thead>
+              <tr>
+                <th>Email</th>
+                <th>Ρόλος</th>
+                <th>Επιπλέον Δικαιώματα</th>
+                <th>Δημιουργία</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody id="users-tbody"></tbody>
           </table>
         </div>
       </div>
@@ -702,6 +727,48 @@
       <div class="modal-footer">
         <button class="btn btn-ghost" data-modal="modal-receipt">Άκυρο</button>
         <button class="btn btn-primary" id="btn-save-receipt">Αποθήκευση</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal: New/Edit User -->
+  <div id="modal-user" class="modal-overlay hidden" data-no-backdrop-close>
+    <div class="modal modal-lg">
+      <div class="modal-header">
+        <h3 id="modal-user-title">Νέος Χρήστης</h3>
+        <button class="modal-close" data-modal="modal-user">✕</button>
+      </div>
+      <div class="modal-body">
+        <div class="form-grid" style="margin-bottom:1.2rem">
+          <div class="field-group col-2">
+            <label>Email</label>
+            <input type="email" id="user-email" placeholder="user@example.com" autocomplete="off" />
+          </div>
+          <div class="field-group col-2" id="user-password-row">
+            <label>Κωδικός (τουλάχιστον 6 χαρακτήρες)</label>
+            <input type="password" id="user-password" placeholder="••••••••" autocomplete="new-password" />
+          </div>
+          <div class="field-group col-2">
+            <label>Ρόλος</label>
+            <select id="user-role">
+              <option value="user">User — Read only + Πελατολόγιο</option>
+              <option value="leader">Leader — Read only + Tasks + Πελατολόγιο</option>
+              <option value="admin">Admin — Πλήρης πρόσβαση</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="permissions-section">
+          <div class="permissions-header">
+            <span>Επιπλέον δικαιώματα Write Access</span>
+            <span class="permissions-note">Τα "default" ενεργοποιούνται αυτόματα από τον ρόλο</span>
+          </div>
+          <div id="permissions-grid" class="permissions-grid"></div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-ghost" data-modal="modal-user">Άκυρο</button>
+        <button class="btn btn-primary" id="btn-save-user">Αποθήκευση</button>
       </div>
     </div>
   </div>

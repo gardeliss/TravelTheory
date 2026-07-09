@@ -11,6 +11,8 @@ const db = createClient(SUPABASE_URL, SUPABASE_KEY);
 // ── STATE ────────────────────────────────────────────────────
 const state = {
   user: null,
+  userProfile: null,   // { role, custom_permissions }
+  users: [],           // for admin user management
   trips: [],
   customers: [],
   currentTrip: null,
@@ -23,6 +25,34 @@ const state = {
   selectedCustomerId: null,
   addingToWaitlist: false,
 };
+
+// ── PERMISSIONS ───────────────────────────────────────────────
+const DEFAULT_WRITE = {
+  admin:  { participants:true, costs:true, financials:true, pricing:true, tasks:true, rooms:true, receipts:true, customers:true, waitlist:true },
+  leader: { participants:false, costs:false, financials:false, pricing:false, tasks:true, rooms:false, receipts:false, customers:true, waitlist:false },
+  user:   { participants:false, costs:false, financials:false, pricing:false, tasks:false, rooms:false, receipts:false, customers:true, waitlist:false },
+};
+
+function canWrite(tab) {
+  const profile = state.userProfile;
+  if (!profile) return false;
+  if (profile.role === 'admin') return true;
+  const defaults = DEFAULT_WRITE[profile.role] || {};
+  const custom   = profile.custom_permissions  || {};
+  return !!(defaults[tab] || custom[tab]);
+}
+
+function isAdmin() { return state.userProfile?.role === 'admin'; }
+
+async function loadUserProfile() {
+  const { data, error } = await db
+    .from('user_profiles')
+    .select('role, custom_permissions')
+    .eq('id', state.user.id)
+    .single();
+  if (error) { console.error('Profile load error:', error); return; }
+  state.userProfile = data;
+}
 
 // Εισπράξεις (trip_participants)
 const INCOME_BANK_METHODS = ['ALPHA','EUROBANK','ΕΘΝΙΚΗ','REVOLUT','E-POS'];
@@ -104,8 +134,14 @@ async function logout() {
   showScreen('login');
 }
 
-function enterApp() {
+async function enterApp() {
+  await loadUserProfile();
   setText('user-email-display', state.user.email);
+
+  // Show/hide admin-only nav items
+  const usersNav = document.getElementById('nav-users');
+  if (usersNav) usersNav.style.display = isAdmin() ? '' : 'none';
+
   showScreen('app');
   navigateTo('trips');
 }
@@ -117,15 +153,23 @@ function navigateTo(view) {
 
   if (view === 'trips') {
     show('view-trips');
-    document.querySelector('[data-view="trips"]').classList.add('active');
+    document.querySelector('[data-view="trips"]')?.classList.add('active');
     loadTrips();
   } else if (view === 'customers') {
     show('view-customers');
-    document.querySelector('[data-view="customers"]').classList.add('active');
+    document.querySelector('[data-view="customers"]')?.classList.add('active');
+    // Hide write actions if no permission
+    const btnNew = document.getElementById('btn-new-customer');
+    if (btnNew) btnNew.style.display = canWrite('customers') ? '' : 'none';
     loadCustomers();
     initSortableTable('customers-table', () => state.customers, renderCustomersRows);
   } else if (view === 'trip-detail') {
     show('view-trip-detail');
+  } else if (view === 'users') {
+    if (!isAdmin()) return toast('Δεν έχετε πρόσβαση', 'error');
+    show('view-users');
+    document.querySelector('[data-view="users"]')?.classList.add('active');
+    loadUsers();
   }
 }
 
@@ -643,22 +687,23 @@ function renderFinancials(f) {
 // ── PRICING ───────────────────────────────────────────────────
 function loadPricing() {
   const t = state.currentTrip;
+  const pricingW = canWrite('pricing');
   $('pricing-content').innerHTML = `
     <div class="pricing-card">
       <label>Full Price</label>
-      <input type="number" id="price-full" value="${t.price_full || ''}" min="0" placeholder="0" />
+      <input type="number" id="price-full" value="${t.price_full || ''}" min="0" placeholder="0" ${!pricingW ? 'disabled' : ''} />
     </div>
     <div class="pricing-card">
       <label>No Flight</label>
-      <input type="number" id="price-no-flight" value="${t.price_no_flight || ''}" min="0" placeholder="0" />
+      <input type="number" id="price-no-flight" value="${t.price_no_flight || ''}" min="0" placeholder="0" ${!pricingW ? 'disabled' : ''} />
     </div>
     <div class="pricing-card">
       <label>Single Supplement</label>
-      <input type="number" id="price-single-supp" value="${t.price_single_supp || ''}" min="0" placeholder="0" />
+      <input type="number" id="price-single-supp" value="${t.price_single_supp || ''}" min="0" placeholder="0" ${!pricingW ? 'disabled' : ''} />
     </div>
-    <div style="grid-column:1/-1">
+    ${pricingW ? `<div style="grid-column:1/-1">
       <button class="btn btn-primary pricing-save-btn" onclick="savePricing()">Αποθήκευση Τιμών</button>
-    </div>
+    </div>` : ''}
   `;
 }
 
@@ -695,18 +740,21 @@ function renderTasks() {
     container.innerHTML = '<p style="color:var(--text3)">Δεν βρέθηκαν tasks.</p>';
     return;
   }
+  const w = canWrite('tasks');
   container.innerHTML = state.currentTasks.map(t => `
     <div class="task-item ${t.is_done ? 'done' : ''}" id="task-row-${t.id}">
       <input class="task-checkbox" type="checkbox" ${t.is_done ? 'checked' : ''}
-             onchange="updateTask('${t.id}', 'is_done', this.checked)" />
+             ${w ? `onchange="updateTask('${t.id}', 'is_done', this.checked)"` : 'disabled'} />
       <span class="task-label">${esc(t.task_label)}</span>
       <div class="task-date">
         <input type="date" value="${t.task_date || ''}"
-               onchange="updateTask('${t.id}', 'task_date', this.value)" />
+               ${w ? `onchange="updateTask('${t.id}', 'task_date', this.value)"` : 'disabled'}
+               ${!w ? 'style="pointer-events:none;opacity:.6"' : ''} />
       </div>
       <div class="task-comments">
         <input type="text" value="${esc(t.comments || '')}" placeholder="Σημειώσεις..."
-               onblur="updateTask('${t.id}', 'comments', this.value)" />
+               ${w ? `onblur="updateTask('${t.id}', 'comments', this.value)"` : 'disabled readonly'}
+               ${!w ? 'style="opacity:.6"' : ''} />
       </div>
     </div>
   `).join('');
@@ -726,6 +774,170 @@ async function updateTask(id, field, value) {
   }
 }
 
+
+
+// ── USER MANAGEMENT ───────────────────────────────────────────
+const TABS_LIST = [
+  { key: 'participants', label: 'Συμμετέχοντες' },
+  { key: 'costs',        label: 'Έξοδα' },
+  { key: 'financials',   label: 'Λογιστική' },
+  { key: 'pricing',      label: 'Τιμές' },
+  { key: 'tasks',        label: 'Tasks' },
+  { key: 'rooms',        label: 'Room Plan' },
+  { key: 'receipts',     label: 'Αποδείξεις/Τιμολόγια' },
+  { key: 'waitlist',     label: 'Εφεδρικοί' },
+  { key: 'customers',    label: 'Πελατολόγιο' },
+];
+
+const ROLE_LABELS = { admin: 'Admin', leader: 'Leader', user: 'User' };
+const ROLE_BADGE  = { admin: 'badge-danger', leader: 'badge-blue', user: 'badge-gray' };
+
+async function loadUsers() {
+  const { data, error } = await db
+    .from('user_profiles')
+    .select('id, email, role, custom_permissions, created_at')
+    .order('created_at');
+  if (error) return toast('Σφάλμα φόρτωσης χρηστών', 'error');
+  state.users = data || [];
+  renderUsers();
+}
+
+function renderUsers() {
+  const tbody = document.getElementById('users-tbody');
+  if (!tbody) return;
+  if (!state.users.length) {
+    tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;color:var(--text3);padding:1.5rem">Δεν βρέθηκαν χρήστες.</td></tr>';
+    return;
+  }
+  tbody.innerHTML = state.users.map(u => {
+    const isSelf = u.id === state.user.id;
+    const cp = u.custom_permissions || {};
+    const extraTabs = TABS_LIST.filter(t => cp[t.key]).map(t => t.label).join(', ');
+    return `
+      <tr>
+        <td>${esc(u.email)}</td>
+        <td><span class="badge ${ROLE_BADGE[u.role] || 'badge-gray'}">${ROLE_LABELS[u.role] || u.role}</span></td>
+        <td style="font-size:.78rem;color:var(--text3)">${extraTabs || '—'}</td>
+        <td style="font-size:.78rem;color:var(--text3)">${new Date(u.created_at).toLocaleDateString('el-GR')}</td>
+        <td>
+          ${!isSelf ? `
+            <button class="btn-icon" onclick="openEditUser('${u.id}')">✏️</button>
+            <button class="btn-icon danger" onclick="deleteUser('${u.id}')">🗑</button>
+          ` : '<span style="font-size:.75rem;color:var(--text3)">Εσείς</span>'}
+        </td>
+      </tr>
+    `;
+  }).join('');
+}
+
+function openNewUser() {
+  state.editingId = null;
+  setText('modal-user-title', 'Νέος Χρήστης');
+  document.getElementById('user-email').value    = '';
+  document.getElementById('user-password').value = '';
+  document.getElementById('user-role').value     = 'user';
+  document.getElementById('user-email').disabled    = false;
+  document.getElementById('user-password-row').style.display = '';
+  renderPermissionCheckboxes({});
+  openModal('modal-user');
+}
+
+function openEditUser(id) {
+  const u = state.users.find(x => x.id === id);
+  if (!u) return;
+  state.editingId = id;
+  setText('modal-user-title', 'Επεξεργασία Χρήστη');
+  document.getElementById('user-email').value    = u.email;
+  document.getElementById('user-role').value     = u.role;
+  document.getElementById('user-email').disabled    = true;
+  document.getElementById('user-password-row').style.display = 'none'; // can't change password here
+  renderPermissionCheckboxes(u.custom_permissions || {});
+  openModal('modal-user');
+}
+
+function renderPermissionCheckboxes(current) {
+  const role    = document.getElementById('user-role').value;
+  const defaults = DEFAULT_WRITE[role] || {};
+  const container = document.getElementById('permissions-grid');
+  if (!container) return;
+
+  container.innerHTML = TABS_LIST.map(t => {
+    const isDefault  = !!defaults[t.key];
+    const isCustom   = !!current[t.key];
+    const isChecked  = isDefault || isCustom;
+    const isDisabled = isDefault || role === 'admin'; // defaults & admin always on
+
+    return `
+      <label class="perm-checkbox ${isDisabled ? 'perm-default' : ''}">
+        <input type="checkbox"
+               data-tab="${t.key}"
+               ${isChecked  ? 'checked'  : ''}
+               ${isDisabled ? 'disabled' : ''}
+        />
+        <span>${t.label}</span>
+        ${isDefault ? '<span class="perm-tag">default</span>' : ''}
+      </label>
+    `;
+  }).join('');
+}
+
+async function saveUser() {
+  const role  = document.getElementById('user-role').value;
+  const email = document.getElementById('user-email').value.trim();
+
+  // Build custom_permissions: only non-default checked boxes
+  const defaults = DEFAULT_WRITE[role] || {};
+  const custom   = {};
+  document.querySelectorAll('#permissions-grid input[type="checkbox"]').forEach(cb => {
+    const tab = cb.dataset.tab;
+    if (cb.checked && !defaults[tab]) custom[tab] = true;
+  });
+
+  if (state.editingId) {
+    // Edit: update role + custom_permissions only
+    const { error } = await db.from('user_profiles')
+      .update({ role, custom_permissions: custom })
+      .eq('id', state.editingId);
+    if (error) return toast('Σφάλμα αποθήκευσης', 'error');
+    toast('Χρήστης ενημερώθηκε', 'success');
+
+  } else {
+    // New: create auth user via Supabase admin API
+    if (!email) return toast('Εισάγετε email', 'error');
+    const password = document.getElementById('user-password').value;
+    if (!password || password.length < 6) return toast('Ο κωδικός πρέπει να έχει τουλάχιστον 6 χαρακτήρες', 'error');
+
+    // Use signUp — profile created automatically via trigger
+    const { data: signUpData, error: signUpError } = await db.auth.admin
+      ? await db.auth.admin.createUser({ email, password, email_confirm: true })
+      : { error: { message: 'Admin API not available' } };
+
+    // Fallback: use standard signUp (will create profile via trigger)
+    if (signUpError) {
+      // Try service role workaround via edge function — for now use direct insert approach
+      toast('Σφάλμα δημιουργίας: ' + signUpError.message, 'error');
+      return;
+    }
+
+    const newUserId = signUpData?.user?.id;
+    if (newUserId) {
+      await db.from('user_profiles').update({ role, custom_permissions: custom }).eq('id', newUserId);
+    }
+    toast('Χρήστης δημιουργήθηκε', 'success');
+  }
+
+  closeModal('modal-user');
+  loadUsers();
+}
+
+async function deleteUser(id) {
+  if (!confirm('Διαγραφή χρήστη; Η ενέργεια δεν αναιρείται.')) return;
+  // Delete profile (cascade will handle auth.users if set up)
+  const { error } = await db.from('user_profiles').delete().eq('id', id);
+  if (error) return toast('Σφάλμα διαγραφής', 'error');
+  toast('Χρήστης διαγράφηκε', 'success');
+  loadUsers();
+}
 
 // ── ROOMS ─────────────────────────────────────────────────────
 async function loadRooms() {
@@ -979,7 +1191,7 @@ function renderReceipts(rows) {
         </td>
         <td>${esc(p.receipt_number || '—')}</td>
         <td>
-          <button class="btn-icon" onclick="editReceipt('${p.id}')">✏️</button>
+          ${canWrite('receipts') ? `<button class="btn-icon" onclick="editReceipt('${p.id}')">✏️</button>` : ''}
         </td>
       </tr>
     `;
@@ -1049,14 +1261,32 @@ async function saveReceipt() {
 }
 
 // ── TABS ─────────────────────────────────────────────────────
+function applyTabPermissions(tabName) {
+  const w = canWrite(tabName);
+  // Map tab → write action button IDs
+  const writeButtons = {
+    participants: ['btn-add-participant'],
+    costs:        ['btn-add-cost'],
+    waitlist:     ['btn-add-waitlist'],
+    rooms:        ['btn-add-room'],
+    pricing:      ['pricing-save-btn-id'],  // handled inside loadPricing
+    tasks:        [],  // tasks always show checkboxes but fields disabled if no write
+    receipts:     [],  // edit buttons handled in render
+  };
+  (writeButtons[tabName] || []).forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.style.display = w ? '' : 'none';
+  });
+}
+
 function switchTab(tabName) {
   document.querySelectorAll('.tab-panel').forEach(p => p.classList.add('hidden'));
   document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
 
   show(`tab-${tabName}`);
   document.querySelector(`.tab[data-tab="${tabName}"]`).classList.add('active');
+  applyTabPermissions(tabName);
 
-  // Load data for the tab
   if (tabName === 'participants') {
     loadParticipants();
     initSortableTable('participants-table', () => state.currentParticipants, renderParticipantsRows);
@@ -1240,6 +1470,17 @@ function bindStaticEvents() {
   document.getElementById('btn-save-room-assignment')?.addEventListener('click', saveRoomAssignment);
   document.getElementById('btn-save-receipt')?.addEventListener('click', saveReceipt);
 
+  // User management
+  document.getElementById('btn-new-user')?.addEventListener('click', openNewUser);
+  document.getElementById('btn-save-user')?.addEventListener('click', saveUser);
+  document.getElementById('user-role')?.addEventListener('change', () => {
+    const current = {};
+    document.querySelectorAll('#permissions-grid input[type="checkbox"]:checked').forEach(cb => {
+      current[cb.dataset.tab] = true;
+    });
+    renderPermissionCheckboxes(current);
+  });
+
   // Password toggle
   document.getElementById('toggle-password')?.addEventListener('click', () => {
     const input = document.getElementById('login-password');
@@ -1401,8 +1642,10 @@ function renderParticipantsRows(rows) {
       <td><span class="${p.balance > 0 ? 'badge badge-yellow' : 'badge badge-green'}">${formatEur(p.balance)}</span></td>
       <td>${formatEur(p.final_payment)}</td>
       <td>
-        <button class="btn-icon" onclick="editParticipant('${p.id}')">✏️</button>
-        <button class="btn-icon danger" onclick="deleteParticipant('${p.id}')">🗑</button>
+        ${canWrite('participants') ? `
+          <button class="btn-icon" onclick="editParticipant('${p.id}')">✏️</button>
+          <button class="btn-icon danger" onclick="deleteParticipant('${p.id}')">🗑</button>
+        ` : ''}
       </td>
     </tr>
   `).join('');
@@ -1423,8 +1666,10 @@ function renderWaitlistRows(rows) {
       <td>${p.room_type || '—'}</td>
       <td>${formatEur(p.deposit_amount)}</td>
       <td>
-        <button class="btn btn-sm btn-primary" onclick="promoteFromWaitlist('${p.id}')">→ Μεταφορά</button>
-        <button class="btn-icon danger" onclick="deleteParticipant('${p.id}', true)" style="margin-left:.3rem">🗑</button>
+        ${canWrite('waitlist') ? `
+          <button class="btn btn-sm btn-primary" onclick="promoteFromWaitlist('${p.id}')">→ Μεταφορά</button>
+          <button class="btn-icon danger" onclick="deleteParticipant('${p.id}', true)" style="margin-left:.3rem">🗑</button>
+        ` : ''}
       </td>
     </tr>
   `).join('');
@@ -1447,8 +1692,10 @@ function renderCostsRows(rows) {
       <td><span class="badge ${c.is_paid ? 'badge-green' : 'badge-gray'}">${c.is_paid ? 'Ναι' : 'Όχι'}</span></td>
       <td><span class="badge ${c.has_invoice ? 'badge-green' : 'badge-gray'}">${c.has_invoice ? 'Ναι' : 'Όχι'}</span></td>
       <td>
-        <button class="btn-icon" onclick="editCost('${c.id}')">✏️</button>
-        <button class="btn-icon danger" onclick="deleteCost('${c.id}')">🗑</button>
+        ${canWrite('costs') ? `
+          <button class="btn-icon" onclick="editCost('${c.id}')">✏️</button>
+          <button class="btn-icon danger" onclick="deleteCost('${c.id}')">🗑</button>
+        ` : ''}
       </td>
     </tr>
   `).join('');
@@ -1469,8 +1716,10 @@ function renderCustomersRows(rows) {
       <td>${esc(c.passport_number || '—')}</td>
       <td>${c.expiry_date ? formatDate(c.expiry_date) : '—'}</td>
       <td>
-        <button class="btn-icon" onclick="editCustomer('${c.id}')">✏️</button>
-        <button class="btn-icon danger" onclick="deleteCustomer('${c.id}')">🗑</button>
+        ${canWrite('customers') ? `
+          <button class="btn-icon" onclick="editCustomer('${c.id}')">✏️</button>
+          <button class="btn-icon danger" onclick="deleteCustomer('${c.id}')">🗑</button>
+        ` : ''}
       </td>
     </tr>
   `).join('');
