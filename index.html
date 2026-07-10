@@ -114,20 +114,7 @@
           <h2>Διαχείριση Χρηστών</h2>
           <button class="btn btn-primary" id="btn-new-user">+ Νέος Χρήστης</button>
         </div>
-        <div id="users-table-wrap">
-          <table class="data-table" id="users-table">
-            <thead>
-              <tr>
-                <th>Email</th>
-                <th>Ρόλος</th>
-                <th>Επιπλέον Δικαιώματα</th>
-                <th>Δημιουργία</th>
-                <th></th>
-              </tr>
-            </thead>
-            <tbody id="users-tbody"></tbody>
-          </table>
-        </div>
+        <div id="users-list" class="users-list"></div>
       </div>
 
       <!-- ── VIEW: TRIP DETAIL ─────────────────────────────── -->
@@ -156,44 +143,36 @@
         <!-- Tab: Participants -->
         <div id="tab-participants" class="tab-panel">
           <div class="panel-toolbar">
-            <button class="btn btn-primary btn-sm" id="btn-add-participant">+ Προσθήκη Συμμετέχοντα</button>
+            <button class="btn btn-primary btn-sm" id="btn-add-participant">+ Προσθήκη</button>
+            <button class="btn btn-secondary btn-sm" id="btn-group-selected" onclick="groupSelected()">🔗 Ομαδοποίηση</button>
           </div>
           <div id="participant-count-bar" class="participant-count-bar"></div>
           <div id="participants-table-wrap">
             <table class="data-table sortable-table" id="participants-table">
               <thead>
                 <tr>
-                  <th data-col="last_name" data-type="text">Επώνυμο <span class="sort-icon">⇅</span></th>
-                  <th data-col="first_name" data-type="text">Όνομα <span class="sort-icon">⇅</span></th>
-                  <th data-col="solo_couple" data-type="text" data-filterable="true">Τύπος <span class="sort-icon">⇅</span></th>
-                  <th data-col="room_type" data-type="text" data-filterable="true">Δωμάτιο <span class="sort-icon">⇅</span></th>
-                  <th data-col="deposit_amount" data-type="num">Προκαταβολή <span class="sort-icon">⇅</span></th>
-                  <th data-col="installment2_amount" data-type="num">2η Δόση <span class="sort-icon">⇅</span></th>
-                  <th data-col="installment3_amount" data-type="num">3η Δόση <span class="sort-icon">⇅</span></th>
-                  <th data-col="installment4_amount" data-type="num">4η Δόση <span class="sort-icon">⇅</span></th>
-                  <th data-col="balance" data-type="num">Υπόλοιπο <span class="sort-icon">⇅</span></th>
-                  <th data-col="final_payment" data-type="num">Εξόφληση <span class="sort-icon">⇅</span></th>
+                  <th style="width:28px"></th>
+                  <th style="width:28px"></th>
+                  <th>Επώνυμο</th>
+                  <th>Όνομα</th>
+                  <th>Τύπος</th>
+                  <th>Δωμάτιο</th>
+                  <th>Προκ. €</th>
+                  <th>Τρόπος</th>
+                  <th>Ημ/νία</th>
+                  <th>2η €</th>
+                  <th>Τρόπος</th>
+                  <th>Ημ/νία</th>
+                  <th>3η €</th>
+                  <th>Τρόπος</th>
+                  <th>Ημ/νία</th>
+                  <th>4η €</th>
+                  <th>Τρόπος</th>
+                  <th>Ημ/νία</th>
+                  <th>Υπόλοιπο</th>
+                  <th>Εξόφληση</th>
+                  <th>Ομάδα</th>
                   <th></th>
-                </tr>
-                <tr class="filter-row" id="participants-filter-row">
-                  <td><input class="filter-input" data-col="last_name" placeholder="Φίλτρο..." /></td>
-                  <td><input class="filter-input" data-col="first_name" placeholder="Φίλτρο..." /></td>
-                  <td>
-                    <select class="filter-input" data-col="solo_couple">
-                      <option value="">Όλα</option>
-                      <option>ΦΙΛΟΙ</option><option>ΖΕΥΓΑΡΙ</option>
-                      <option>SOLO</option><option>ΠΑΡΕΑ</option>
-                      <option>ΑΔΕΡΦΙΑ</option><option>ΓΟΝΕΑΣ - ΠΑΙΔΙ</option>
-                      <option>LEADER</option>
-                    </select>
-                  </td>
-                  <td>
-                    <select class="filter-input" data-col="room_type">
-                      <option value="">Όλα</option>
-                      <option>SINGLE</option><option>TWIN</option><option>DOUBLE</option><option>TRIPLE</option>
-                    </select>
-                  </td>
-                  <td></td><td></td><td></td><td></td><td></td><td></td><td></td>
                 </tr>
               </thead>
               <tbody id="participants-tbody"></tbody>
@@ -741,23 +720,26 @@
       <div class="modal-body">
         <div class="form-grid" style="margin-bottom:1.2rem">
           <div class="field-group col-2">
+            <label>Ονοματεπώνυμο</label>
+            <input type="text" id="user-full-name" placeholder="π.χ. Γιώργος Παπαδόπουλος" autocomplete="off" />
+          </div>
+          <div class="field-group col-2">
             <label>Email</label>
             <input type="email" id="user-email" placeholder="user@example.com" autocomplete="off" />
           </div>
           <div class="field-group col-2" id="user-password-row">
-            <label>Κωδικός (τουλάχιστον 6 χαρακτήρες)</label>
+            <label>Κωδικός <span style="color:var(--text3);font-size:.75rem">(τουλάχιστον 6 χαρακτήρες)</span></label>
             <input type="password" id="user-password" placeholder="••••••••" autocomplete="new-password" />
           </div>
           <div class="field-group col-2">
             <label>Ρόλος</label>
             <select id="user-role">
-              <option value="user">User — Read only + Πελατολόγιο</option>
-              <option value="leader">Leader — Read only + Tasks + Πελατολόγιο</option>
+              <option value="user">User — Read only + Write Πελατολόγιο</option>
+              <option value="leader">Leader — Read only + Write Tasks + Πελατολόγιο</option>
               <option value="admin">Admin — Πλήρης πρόσβαση</option>
             </select>
           </div>
         </div>
-
         <div class="permissions-section">
           <div class="permissions-header">
             <span>Επιπλέον δικαιώματα Write Access</span>

@@ -375,6 +375,8 @@ async function loadParticipants() {
     .select('*, customers(first_name, last_name)')
     .eq('trip_id', state.currentTrip.id)
     .eq('is_waitlist', false)
+    .order('sort_order', { ascending: true, nullsFirst: true })
+    .order('group_id',   { ascending: true, nullsFirst: false })
     .order('created_at');
 
   if (error) return toast('Σφάλμα φόρτωσης συμμετεχόντων', 'error');
@@ -410,7 +412,7 @@ function updateParticipantCount() {
 }
 
 function renderParticipants() {
-  applySortFilter('participants-table', () => state.currentParticipants, renderParticipantsRows);
+  renderParticipantsGrouped(state.currentParticipants);
 }
 
 function renderWaitlist() {
@@ -455,7 +457,6 @@ async function saveParticipant() {
     trip_id:              state.currentTrip.id,
     customer_id:          state.selectedCustomerId,
     is_waitlist:          state.addingToWaitlist,
-    room_id:              document.getElementById('part-room-id')?.value || null,
     solo_couple:          document.getElementById('part-solo-couple').value  || null,
     room_type:            document.getElementById('part-room-type').value    || null,
     deposit_amount:       dep,
@@ -529,9 +530,6 @@ async function editParticipant(id) {
   $('part-inst4-method').value     = p.installment4_method || '';
   $('part-inst4-date').value       = p.installment4_date   || '';
   $('part-balance').value          = p.balance       || '';
-  await populateRoomDropdown();
-  const roomEl = document.getElementById('part-room-id');
-  if (roomEl) roomEl.value = p.room_id || '';
   $('part-final-payment').value    = p.final_payment || '';
 
   openModal('modal-participant');
@@ -813,37 +811,42 @@ const ROLE_BADGE  = { admin: 'badge-danger', leader: 'badge-blue', user: 'badge-
 async function loadUsers() {
   const { data, error } = await db
     .from('user_profiles')
-    .select('id, email, role, custom_permissions, created_at')
-    .order('created_at');
+    .select('id, email, full_name, role, custom_permissions, created_at')
+    .order('full_name');
   if (error) return toast('Σφάλμα φόρτωσης χρηστών', 'error');
   state.users = data || [];
   renderUsers();
 }
 
 function renderUsers() {
-  const tbody = document.getElementById('users-tbody');
-  if (!tbody) return;
+  const container = document.getElementById('users-list');
+  if (!container) return;
   if (!state.users.length) {
-    tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;color:var(--text3);padding:1.5rem">Δεν βρέθηκαν χρήστες.</td></tr>';
+    container.innerHTML = '<p style="color:var(--text3);padding:1rem">Δεν βρέθηκαν χρήστες.</p>';
     return;
   }
-  tbody.innerHTML = state.users.map(u => {
+  container.innerHTML = state.users.map(u => {
     const isSelf = u.id === state.user.id;
     const cp = u.custom_permissions || {};
     const extraTabs = TABS_LIST.filter(t => cp[t.key]).map(t => t.label).join(', ');
     return `
-      <tr>
-        <td>${esc(u.email)}</td>
-        <td><span class="badge ${ROLE_BADGE[u.role] || 'badge-gray'}">${ROLE_LABELS[u.role] || u.role}</span></td>
-        <td style="font-size:.78rem;color:var(--text3)">${extraTabs || '—'}</td>
-        <td style="font-size:.78rem;color:var(--text3)">${new Date(u.created_at).toLocaleDateString('el-GR')}</td>
-        <td>
-          ${!isSelf ? `
-            <button class="btn-icon" onclick="openEditUser('${u.id}')">✏️</button>
-            <button class="btn-icon danger" onclick="deleteUser('${u.id}')">🗑</button>
-          ` : '<span style="font-size:.75rem;color:var(--text3)">Εσείς</span>'}
-        </td>
-      </tr>
+      <div class="user-card">
+        <div class="user-card-avatar">${esc(u.full_name || u.email).charAt(0).toUpperCase()}</div>
+        <div class="user-card-info">
+          <div class="user-card-name">${esc(u.full_name || '—')}</div>
+          <div class="user-card-email">${esc(u.email)}</div>
+          ${extraTabs ? `<div class="user-card-extra">+Write: ${extraTabs}</div>` : ''}
+        </div>
+        <div class="user-card-right">
+          <span class="badge ${ROLE_BADGE[u.role] || 'badge-gray'}">${ROLE_LABELS[u.role] || u.role}</span>
+          <div class="user-card-actions">
+            ${!isSelf ? `
+              <button class="btn btn-sm btn-secondary" onclick="openEditUser('${u.id}')">Επεξ.</button>
+              <button class="btn btn-sm btn-danger" onclick="deleteUser('${u.id}')">Διαγ.</button>
+            ` : '<span class="user-self-badge">Εσείς</span>'}
+          </div>
+        </div>
+      </div>
     `;
   }).join('');
 }
@@ -851,10 +854,11 @@ function renderUsers() {
 function openNewUser() {
   state.editingId = null;
   setText('modal-user-title', 'Νέος Χρήστης');
-  document.getElementById('user-email').value    = '';
-  document.getElementById('user-password').value = '';
-  document.getElementById('user-role').value     = 'user';
-  document.getElementById('user-email').disabled    = false;
+  document.getElementById('user-full-name').value = '';
+  document.getElementById('user-email').value     = '';
+  document.getElementById('user-password').value  = '';
+  document.getElementById('user-role').value      = 'user';
+  document.getElementById('user-email').disabled  = false;
   document.getElementById('user-password-row').style.display = '';
   renderPermissionCheckboxes({});
   openModal('modal-user');
@@ -865,16 +869,17 @@ function openEditUser(id) {
   if (!u) return;
   state.editingId = id;
   setText('modal-user-title', 'Επεξεργασία Χρήστη');
-  document.getElementById('user-email').value    = u.email;
-  document.getElementById('user-role').value     = u.role;
-  document.getElementById('user-email').disabled    = true;
-  document.getElementById('user-password-row').style.display = 'none'; // can't change password here
+  document.getElementById('user-full-name').value = u.full_name || '';
+  document.getElementById('user-email').value     = u.email;
+  document.getElementById('user-role').value      = u.role;
+  document.getElementById('user-email').disabled  = true;
+  document.getElementById('user-password-row').style.display = 'none';
   renderPermissionCheckboxes(u.custom_permissions || {});
   openModal('modal-user');
 }
 
 function renderPermissionCheckboxes(current) {
-  const role    = document.getElementById('user-role').value;
+  const role     = document.getElementById('user-role').value;
   const defaults = DEFAULT_WRITE[role] || {};
   const container = document.getElementById('permissions-grid');
   if (!container) return;
@@ -883,15 +888,12 @@ function renderPermissionCheckboxes(current) {
     const isDefault  = !!defaults[t.key];
     const isCustom   = !!current[t.key];
     const isChecked  = isDefault || isCustom;
-    const isDisabled = isDefault || role === 'admin'; // defaults & admin always on
-
+    const isDisabled = isDefault || role === 'admin';
     return `
       <label class="perm-checkbox ${isDisabled ? 'perm-default' : ''}">
-        <input type="checkbox"
-               data-tab="${t.key}"
+        <input type="checkbox" data-tab="${t.key}"
                ${isChecked  ? 'checked'  : ''}
-               ${isDisabled ? 'disabled' : ''}
-        />
+               ${isDisabled ? 'disabled' : ''} />
         <span>${t.label}</span>
         ${isDefault ? '<span class="perm-tag">default</span>' : ''}
       </label>
@@ -900,10 +902,10 @@ function renderPermissionCheckboxes(current) {
 }
 
 async function saveUser() {
-  const role  = document.getElementById('user-role').value;
-  const email = document.getElementById('user-email').value.trim();
+  const role      = document.getElementById('user-role').value;
+  const email     = document.getElementById('user-email').value.trim();
+  const full_name = document.getElementById('user-full-name').value.trim();
 
-  // Build custom_permissions: only non-default checked boxes
   const defaults = DEFAULT_WRITE[role] || {};
   const custom   = {};
   document.querySelectorAll('#permissions-grid input[type="checkbox"]').forEach(cb => {
@@ -912,16 +914,15 @@ async function saveUser() {
   });
 
   if (state.editingId) {
-    // Edit: update role + custom_permissions only
     const { error } = await db.from('user_profiles')
-      .update({ role, custom_permissions: custom })
+      .update({ full_name, role, custom_permissions: custom })
       .eq('id', state.editingId);
     if (error) return toast('Σφάλμα αποθήκευσης', 'error');
     toast('Χρήστης ενημερώθηκε', 'success');
 
   } else {
-    // New: create user via Edge Function (service_role stays server-side)
-    if (!email) return toast('Εισάγετε email', 'error');
+    if (!email)     return toast('Εισάγετε email', 'error');
+    if (!full_name) return toast('Εισάγετε ονοματεπώνυμο', 'error');
     const password = document.getElementById('user-password').value;
     if (!password || password.length < 6) return toast('Ο κωδικός πρέπει να έχει τουλάχιστον 6 χαρακτήρες', 'error');
 
@@ -935,7 +936,7 @@ async function saveUser() {
         'Authorization': `Bearer ${accessToken}`,
         'apikey': SUPABASE_KEY,
       },
-      body: JSON.stringify({ email, password, role, custom_permissions: custom }),
+      body: JSON.stringify({ email, password, full_name, role, custom_permissions: custom }),
     });
 
     const result = await res.json();
@@ -952,7 +953,6 @@ async function saveUser() {
 
 async function deleteUser(id) {
   if (!confirm('Διαγραφή χρήστη; Η ενέργεια δεν αναιρείται.')) return;
-  // Delete profile (cascade will handle auth.users if set up)
   const { error } = await db.from('user_profiles').delete().eq('id', id);
   if (error) return toast('Σφάλμα διαγραφής', 'error');
   toast('Χρήστης διαγράφηκε', 'success');
@@ -1643,32 +1643,278 @@ function getNestedVal(obj, col) {
 }
 
 // Wrap render functions to support sort/filter
+// GROUP COLORS for visual grouping
+const GROUP_COLORS = [
+  '#dbeafe','#dcfce7','#fef9c3','#fce7f3','#ede9fe',
+  '#ffedd5','#cffafe','#f1f5f9','#fef2f2','#ecfdf5'
+];
+
 function renderParticipantsRows(rows) {
+  renderParticipantsGrouped(rows);
+}
+
+function renderParticipantsGrouped(rows) {
   const tbody = document.getElementById('participants-tbody');
+  if (!tbody) return;
+
   if (!rows.length) {
-    tbody.innerHTML = '<tr><td colspan="11" style="color:var(--text3);text-align:center;padding:1.5rem">Δεν υπάρχουν συμμετέχοντες.</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="13" style="color:var(--text3);text-align:center;padding:1.5rem">Δεν υπάρχουν συμμετέχοντες ακόμα.</td></tr>';
     return;
   }
-  tbody.innerHTML = rows.map(p => `
-    <tr>
-      <td>${p.customers ? esc(p.customers.last_name) : '—'}</td>
-      <td>${p.customers ? esc(p.customers.first_name) : '—'}</td>
-      <td>${p.solo_couple || '—'}</td>
-      <td>${p.room_type || '—'}</td>
-      <td>${formatEur(p.deposit_amount)}</td>
-      <td>${formatEur(p.installment2_amount)}</td>
-      <td>${formatEur(p.installment3_amount)}</td>
-      <td>${formatEur(p.installment4_amount)}</td>
-      <td><span class="${p.balance > 0 ? 'badge badge-yellow' : 'badge badge-green'}">${formatEur(p.balance)}</span></td>
-      <td>${formatEur(p.final_payment)}</td>
-      <td>
-        ${canWrite('participants') ? `
-          <button class="btn-icon" onclick="editParticipant('${p.id}')">✏️</button>
-          <button class="btn-icon danger" onclick="deleteParticipant('${p.id}')">🗑</button>
-        ` : ''}
-      </td>
-    </tr>
-  `).join('');
+
+  const w = canWrite('participants');
+
+  // Build group map: group_id → [participants]
+  const groupMap = {};
+  const ungrouped = [];
+  rows.forEach(p => {
+    if (p.group_id !== null && p.group_id !== undefined) {
+      if (!groupMap[p.group_id]) groupMap[p.group_id] = [];
+      groupMap[p.group_id].push(p);
+    } else {
+      ungrouped.push(p);
+    }
+  });
+
+  // Assign color per group_id
+  const groupIds = Object.keys(groupMap);
+  const groupColorMap = {};
+  groupIds.forEach((gid, i) => {
+    groupColorMap[gid] = GROUP_COLORS[i % GROUP_COLORS.length];
+  });
+
+  // Inline edit cell renderer
+  function editableCell(p, field, type, options = null) {
+    if (!w) {
+      // Read-only
+      if (type === 'eur') return `<td>${formatEur(p[field])}</td>`;
+      return `<td>${esc(p[field] || '—')}</td>`;
+    }
+
+    const val = p[field] ?? '';
+
+    if (type === 'select') {
+      const opts = options.map(o =>
+        `<option value="${o}" ${val === o ? 'selected' : ''}>${o}</option>`
+      ).join('');
+      return `<td><select class="inline-select" onchange="inlineSave('${p.id}','${field}',this.value)">
+        <option value="">—</option>${opts}
+      </select></td>`;
+    }
+
+    if (type === 'select-grouped') {
+      return `<td><select class="inline-select" onchange="inlineSave('${p.id}','${field}',this.value)">
+        <option value="">—</option>
+        <optgroup label="Τράπεζα">
+          <option ${val==='ALPHA'?'selected':''}>ALPHA</option>
+          <option ${val==='EUROBANK'?'selected':''}>EUROBANK</option>
+          <option ${val==='ΕΘΝΙΚΗ'?'selected':''}>ΕΘΝΙΚΗ</option>
+          <option ${val==='REVOLUT'?'selected':''}>REVOLUT</option>
+          <option ${val==='E-POS'?'selected':''}>E-POS</option>
+        </optgroup>
+        <optgroup label="Μετρητά">
+          <option ${val==='ΜΕΤΡΗΤΑ'?'selected':''}>ΜΕΤΡΗΤΑ</option>
+          <option value="ΜΕΤΡΗΤΑ (ΑΠΟΔΕΙΞΗ)" ${val==='ΜΕΤΡΗΤΑ (ΑΠΟΔΕΙΞΗ)'?'selected':''}>ΜΕΤΡΗΤΑ (ΑΠΟΔΕΙΞΗ)</option>
+        </optgroup>
+      </select></td>`;
+    }
+
+    if (type === 'date') {
+      return `<td><input type="date" class="inline-input" value="${val}"
+        onchange="inlineSave('${p.id}','${field}',this.value)" /></td>`;
+    }
+
+    if (type === 'num' || type === 'eur') {
+      return `<td><input type="number" class="inline-input inline-num" value="${val || ''}"
+        placeholder="0"
+        onblur="inlineSave('${p.id}','${field}',this.value)" /></td>`;
+    }
+
+    return `<td><input type="text" class="inline-input" value="${esc(val)}"
+      onblur="inlineSave('${p.id}','${field}',this.value)" /></td>`;
+  }
+
+  // Build rows
+  let html = '';
+  const renderedGroups = new Set();
+
+  rows.forEach((p, idx) => {
+    const gid = p.group_id;
+    const isGrouped = gid !== null && gid !== undefined;
+    const bgColor   = isGrouped ? groupColorMap[gid] : '';
+    const style     = bgColor ? `style="background:${bgColor}20"` : '';
+
+    let groupCells = '';
+    if (isGrouped && !renderedGroups.has(gid)) {
+      // First row of group — render merged cells
+      const groupSize = groupMap[gid].length;
+      renderedGroups.add(gid);
+      groupCells = `
+        <td rowspan="${groupSize}" class="group-cell" style="background:${bgColor};border-left:3px solid ${bgColor}88">
+          <div class="group-cell-inner">
+            <span class="group-label">Ομάδα ${gid}</span>
+            ${w ? `<button class="btn-icon danger" title="Διάλυση ομάδας" onclick="dissolveGroup(${gid})" style="font-size:.7rem">✕</button>` : ''}
+          </div>
+        </td>`;
+    } else if (isGrouped) {
+      // Skip — already rendered via rowspan
+      groupCells = '';
+    } else {
+      // Not in a group
+      groupCells = `<td class="group-cell-empty"></td>`;
+    }
+
+    const dragHandle = w ? `<td class="drag-handle" draggable="false">⠿</td>` : '<td></td>';
+    const checkbox   = w ? `<td><input type="checkbox" class="participant-checkbox" data-id="${p.id}" data-group="${gid ?? ''}" /></td>` : '<td></td>';
+
+    html += `
+      <tr data-id="${p.id}" data-group="${gid ?? ''}" data-sort="${p.sort_order ?? idx}" ${style} class="participant-row">
+        ${dragHandle}
+        ${checkbox}
+        <td>${p.customers ? esc(p.customers.last_name) : '—'}</td>
+        <td>${p.customers ? esc(p.customers.first_name) : '—'}</td>
+        ${editableCell(p, 'solo_couple', 'select', ['ΦΙΛΟΙ','ΖΕΥΓΑΡΙ','SOLO','ΠΑΡΕΑ','ΑΔΕΡΦΙΑ','ΓΟΝΕΑΣ - ΠΑΙΔΙ','LEADER'])}
+        ${editableCell(p, 'room_type',   'select', ['SINGLE','TWIN','DOUBLE','TRIPLE'])}
+        ${editableCell(p, 'deposit_amount',  'eur')}
+        ${editableCell(p, 'deposit_method',  'select-grouped')}
+        ${editableCell(p, 'deposit_date',    'date')}
+        ${editableCell(p, 'installment2_amount', 'eur')}
+        ${editableCell(p, 'installment2_method', 'select-grouped')}
+        ${editableCell(p, 'installment2_date',   'date')}
+        ${editableCell(p, 'installment3_amount', 'eur')}
+        ${editableCell(p, 'installment3_method', 'select-grouped')}
+        ${editableCell(p, 'installment3_date',   'date')}
+        ${editableCell(p, 'installment4_amount', 'eur')}
+        ${editableCell(p, 'installment4_method', 'select-grouped')}
+        ${editableCell(p, 'installment4_date',   'date')}
+        <td>
+          ${w ? `<input type="number" class="inline-input inline-num" value="${p.balance || ''}"
+            placeholder="0" onblur="inlineSave('${p.id}','balance',this.value)" />` :
+            `<span class="${p.balance > 0 ? 'badge badge-yellow' : 'badge badge-green'}">${formatEur(p.balance)}</span>`}
+        </td>
+        ${editableCell(p, 'final_payment', 'eur')}
+        ${groupCells}
+        <td>
+          ${w ? `<button class="btn-icon danger" onclick="deleteParticipant('${p.id}')" title="Διαγραφή">🗑</button>` : ''}
+        </td>
+      </tr>`;
+  });
+
+  tbody.innerHTML = html;
+  if (w) initDragAndDrop();
+}
+
+// ── INLINE SAVE ───────────────────────────────────────────────
+async function inlineSave(id, field, value) {
+  const parsed = ['deposit_amount','installment2_amount','installment3_amount',
+    'installment4_amount','balance','final_payment'].includes(field)
+    ? (parseInt(value) || 0) : (value || null);
+
+  const { error } = await db.from('trip_participants').update({ [field]: parsed }).eq('id', id);
+  if (error) { toast('Σφάλμα αποθήκευσης', 'error'); return; }
+
+  // Update local state
+  const p = state.currentParticipants.find(x => x.id === id);
+  if (p) p[field] = parsed;
+  updateParticipantCount();
+}
+
+// ── GROUPING ──────────────────────────────────────────────────
+function getCheckedParticipantIds() {
+  return [...document.querySelectorAll('.participant-checkbox:checked')].map(cb => cb.dataset.id);
+}
+
+async function groupSelected() {
+  const ids = getCheckedParticipantIds();
+  if (ids.length < 2) return toast('Επιλέξτε τουλάχιστον 2 συμμετέχοντες', 'error');
+
+  // Find next available group_id
+  const usedGroups = state.currentParticipants
+    .map(p => p.group_id).filter(g => g !== null && g !== undefined);
+  const nextGroup = usedGroups.length ? Math.max(...usedGroups) + 1 : 1;
+
+  const { error } = await db.from('trip_participants')
+    .update({ group_id: nextGroup })
+    .in('id', ids);
+
+  if (error) return toast('Σφάλμα ομαδοποίησης', 'error');
+  toast('Ομαδοποίηση ολοκληρώθηκε', 'success');
+  loadParticipants();
+}
+
+async function dissolveGroup(groupId) {
+  if (!confirm(`Διάλυση ομάδας ${groupId};`)) return;
+  const ids = state.currentParticipants
+    .filter(p => p.group_id === groupId).map(p => p.id);
+
+  const { error } = await db.from('trip_participants')
+    .update({ group_id: null })
+    .in('id', ids);
+
+  if (error) return toast('Σφάλμα διάλυσης ομάδας', 'error');
+  toast('Ομάδα διαλύθηκε', 'success');
+  loadParticipants();
+}
+
+// ── DRAG & DROP ───────────────────────────────────────────────
+function initDragAndDrop() {
+  const tbody = document.getElementById('participants-tbody');
+  if (!tbody) return;
+
+  let dragSrc = null;
+
+  tbody.querySelectorAll('.participant-row').forEach(row => {
+    const handle = row.querySelector('.drag-handle');
+    if (!handle) return;
+
+    handle.addEventListener('mousedown', () => { row.draggable = true; });
+    handle.addEventListener('mouseup',   () => { row.draggable = false; });
+
+    row.addEventListener('dragstart', e => {
+      dragSrc = row;
+      e.dataTransfer.effectAllowed = 'move';
+      row.classList.add('dragging');
+    });
+
+    row.addEventListener('dragend', () => {
+      row.draggable = false;
+      row.classList.remove('dragging');
+      tbody.querySelectorAll('.participant-row').forEach(r => r.classList.remove('drag-over'));
+      saveSortOrder();
+    });
+
+    row.addEventListener('dragover', e => {
+      e.preventDefault();
+      if (row === dragSrc) return;
+      tbody.querySelectorAll('.participant-row').forEach(r => r.classList.remove('drag-over'));
+      row.classList.add('drag-over');
+    });
+
+    row.addEventListener('drop', e => {
+      e.preventDefault();
+      if (!dragSrc || dragSrc === row) return;
+      // Insert dragSrc before this row
+      tbody.insertBefore(dragSrc, row);
+      row.classList.remove('drag-over');
+    });
+  });
+}
+
+async function saveSortOrder() {
+  const rows = [...document.querySelectorAll('#participants-tbody .participant-row')];
+  const updates = rows.map((row, idx) => ({
+    id: row.dataset.id,
+    sort_order: idx,
+  }));
+
+  // Update each row's sort_order
+  await Promise.all(updates.map(u =>
+    db.from('trip_participants').update({ sort_order: u.sort_order }).eq('id', u.id)
+  ));
+
+  // Update local state order
+  const idOrder = updates.map(u => u.id);
+  state.currentParticipants.sort((a, b) => idOrder.indexOf(a.id) - idOrder.indexOf(b.id));
 }
 
 function renderWaitlistRows(rows) {

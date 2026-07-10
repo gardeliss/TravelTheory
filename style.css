@@ -781,7 +781,82 @@ input[type="date"]::-webkit-calendar-picker-indicator {
 .badge-blue { background: rgba(61,126,255,.12); color: #2563d4; }
 
 /* ── USER MANAGEMENT ─────────────────────────────────────────── */
-#users-table-wrap { overflow-x: auto; }
+.users-list {
+  display: flex;
+  flex-direction: column;
+  gap: .6rem;
+  max-width: 800px;
+}
+
+.user-card {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: .9rem 1.1rem;
+  transition: border-color .15s;
+}
+
+.user-card:hover { border-color: var(--border2); }
+
+.user-card-avatar {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: rgba(61,126,255,.15);
+  color: var(--accent);
+  font-weight: 700;
+  font-size: 1rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.user-card-info {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: .15rem;
+}
+
+.user-card-name {
+  font-weight: 600;
+  font-size: .92rem;
+  color: var(--text);
+}
+
+.user-card-email {
+  font-size: .78rem;
+  color: var(--text3);
+}
+
+.user-card-extra {
+  font-size: .74rem;
+  color: var(--accent);
+  margin-top: .1rem;
+}
+
+.user-card-right {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: .5rem;
+  flex-shrink: 0;
+}
+
+.user-card-actions {
+  display: flex;
+  gap: .4rem;
+}
+
+.user-self-badge {
+  font-size: .75rem;
+  color: var(--text3);
+  font-style: italic;
+}
 
 .permissions-section {
   border: 1px solid var(--border);
@@ -850,4 +925,108 @@ input[type="date"]::-webkit-calendar-picker-indicator {
   color: var(--accent);
   font-weight: 500;
   margin-left: auto;
+}
+
+/* ── INLINE EDITING ──────────────────────────────────────────── */
+.inline-input {
+  width: 100%;
+  min-width: 60px;
+  background: transparent;
+  border: none;
+  border-bottom: 1px solid transparent;
+  color: var(--text);
+  font-size: .82rem;
+  padding: .15rem .2rem;
+  font-family: inherit;
+  outline: none;
+  transition: border-color .15s, background .15s;
+}
+
+.inline-input:hover  { border-bottom-color: var(--border2); }
+.inline-input:focus  { border-bottom-color: var(--accent); background: rgba(61,126,255,.04); }
+.inline-num          { max-width: 70px; text-align: right; }
+
+.inline-select {
+  width: 100%;
+  min-width: 80px;
+  background: transparent;
+  border: none;
+  border-bottom: 1px solid transparent;
+  color: var(--text);
+  font-size: .82rem;
+  padding: .15rem .1rem;
+  font-family: inherit;
+  outline: none;
+  cursor: pointer;
+  transition: border-color .15s;
+}
+
+.inline-select:hover  { border-bottom-color: var(--border2); }
+.inline-select:focus  { border-bottom-color: var(--accent); }
+.inline-select option { background: #fff; color: var(--text); }
+
+/* ── DRAG & DROP ─────────────────────────────────────────────── */
+.drag-handle {
+  cursor: grab;
+  color: var(--text3);
+  font-size: 1rem;
+  padding: 0 .3rem;
+  user-select: none;
+  text-align: center;
+}
+
+.drag-handle:active { cursor: grabbing; }
+
+.participant-row { transition: background .1s; }
+.participant-row.dragging { opacity: .4; }
+.participant-row.drag-over td { border-top: 2px solid var(--accent); }
+
+/* ── GROUPING ────────────────────────────────────────────────── */
+.group-cell {
+  text-align: center;
+  vertical-align: middle;
+  padding: .3rem .5rem;
+  border-radius: 4px;
+}
+
+.group-cell-inner {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: .2rem;
+}
+
+.group-label {
+  font-size: .72rem;
+  font-weight: 600;
+  color: var(--text2);
+  white-space: nowrap;
+}
+
+.group-cell-empty {
+  border-left: 3px solid transparent;
+}
+
+/* Participants table - horizontal scroll */
+#participants-table-wrap {
+  overflow-x: auto;
+  max-width: 100%;
+}
+
+#participants-table {
+  min-width: 1400px;
+  font-size: .8rem;
+}
+
+#participants-table th,
+#participants-table td {
+  padding: .4rem .5rem;
+  white-space: nowrap;
+}
+
+.participant-checkbox {
+  width: 15px;
+  height: 15px;
+  accent-color: var(--accent);
+  cursor: pointer;
 }
