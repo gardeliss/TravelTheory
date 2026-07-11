@@ -1880,7 +1880,8 @@ function editableFinalPayment(p) {
   if (!w) return `<td style="font-weight:500">${formatEur(val)}</td>`;
   return `<td><input type="number" class="inline-input inline-num" value="${val||''}"
     placeholder="${state.currentTrip?.price_full || 0}"
-    onblur="inlineSave('${p.id}','final_payment',this.value)" /></td>`;
+    onblur="inlineSave('${p.id}','final_payment',this.value)"
+    oninput="previewBalance('${p.id}',this.value)" /></td>`;
 }
 
 function renderParticipantsGrouped(rows) {
@@ -1955,8 +1956,10 @@ function renderParticipantsGrouped(rows) {
     }
 
     if (type === 'num' || type === 'eur') {
+      const isInstallment = ['deposit_amount','installment2_amount','installment3_amount','installment4_amount'].includes(field);
+      const inputExtra = isInstallment ? `oninput="liveBalanceUpdate('${p.id}','${field}',this.value)"` : '';
       return `<td><input type="number" class="inline-input inline-num" value="${val || ''}"
-        placeholder="0"
+        placeholder="0" ${inputExtra}
         onblur="inlineSave('${p.id}','${field}',this.value)" /></td>`;
     }
 
@@ -2017,12 +2020,8 @@ function renderParticipantsGrouped(rows) {
         ${editableCell(p, 'installment4_amount', 'eur')}
         ${editableCell(p, 'installment4_method', 'select-grouped')}
         ${editableCell(p, 'installment4_date',   'date')}
-        <td>
-          ${w ? `<input type="number" class="inline-input inline-num" value="${p.balance || ''}"
-            placeholder="0" onblur="inlineSave('${p.id}','balance',this.value)" />` :
-            `<span class="${p.balance > 0 ? 'badge badge-yellow' : 'badge badge-green'}">${formatEur(p.balance)}</span>`}
-        </td>
-        ${editableCell(p, 'final_payment', 'eur')}
+        <td class="balance-cell" style="font-weight:600;color:${calcBalance(p)>0?'#b45309':'#15803d'};text-align:right">${formatEur(calcBalance(p))}</td>
+        ${editableFinalPayment(p)}
         ${groupCells}
         <td>
           ${w ? `<button class="btn-icon danger" onclick="deleteParticipant('${p.id}')" title="Διαγραφή">🗑</button>` : ''}
@@ -2055,7 +2054,10 @@ async function inlineSave(id, field, value) {
     const row = document.querySelector(`tr[data-id="${id}"]`);
     if (row) {
       const balCell = row.querySelector('.balance-cell');
-      if (balCell) balCell.textContent = balance > 0 ? formatEur(balance) : '0 €';
+      if (balCell) {
+        balCell.textContent = formatEur(balance);
+        balCell.style.color = balance > 0 ? '#b45309' : '#15803d';
+      }
     }
   }
 
@@ -2063,6 +2065,40 @@ async function inlineSave(id, field, value) {
   if (error) { toast('Σφάλμα αποθήκευσης', 'error'); return; }
 
   updateParticipantCount();
+}
+
+// Live balance update while typing installment amounts
+function liveBalanceUpdate(participantId, changedField, newValue) {
+  const p = state.currentParticipants.find(x => x.id === participantId);
+  if (!p) return;
+  // Temporarily use new value for calculation
+  const temp = { ...p, [changedField]: parseInt(newValue)||0 };
+  const balance = calcBalance(temp);
+  const row = document.querySelector(`tr[data-id="${participantId}"]`);
+  if (row) {
+    const balCell = row.querySelector('.balance-cell');
+    if (balCell) {
+      balCell.textContent = formatEur(balance);
+      balCell.style.color = balance > 0 ? '#b45309' : '#15803d';
+    }
+  }
+}
+
+// Live preview balance while typing (before save)
+function previewBalance(participantId, newFinalPayment) {
+  const p = state.currentParticipants.find(x => x.id === participantId);
+  if (!p) return;
+  const fp = parseInt(newFinalPayment) || 0;
+  const paid = (p.deposit_amount||0)+(p.installment2_amount||0)+(p.installment3_amount||0)+(p.installment4_amount||0);
+  const balance = Math.max(0, fp - paid);
+  const row = document.querySelector(`tr[data-id="${participantId}"]`);
+  if (row) {
+    const balCell = row.querySelector('.balance-cell');
+    if (balCell) {
+      balCell.textContent = formatEur(balance);
+      balCell.style.color = balance > 0 ? '#b45309' : '#15803d';
+    }
+  }
 }
 
 function calcBalance(p) {
