@@ -1030,3 +1030,15 @@ input[type="date"]::-webkit-calendar-picker-indicator {
   accent-color: var(--accent);
   cursor: pointer;
 }
+
+/* ── INLINE CHECKBOX ─────────────────────────────────────────── */
+.inline-checkbox {
+  width: 16px;
+  height: 16px;
+  accent-color: var(--accent);
+  cursor: pointer;
+}
+
+/* Costs & Leads table drag */
+.cost-row.dragging, .lead-row.dragging { opacity: .4; }
+.cost-row.drag-over td, .lead-row.drag-over td { border-top: 2px solid var(--accent); }

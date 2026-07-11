@@ -21,6 +21,7 @@ const state = {
   currentCosts: [],
   currentTasks: [],
   currentRooms: [],
+  currentLeads: [],
   editingId: null,
   selectedCustomerId: null,
   addingToWaitlist: false,
@@ -428,15 +429,14 @@ async function saveParticipant() {
   const ins4 = parseInt(document.getElementById('part-inst4-amount').value)    || 0;
   const totalPaid = dep + ins2 + ins3 + ins4;
 
-  const manualBalance = document.getElementById('part-balance').value;
-  let balance;
-  if (manualBalance !== '') {
-    balance = parseInt(manualBalance);
-  } else {
-    const trip = state.currentTrip;
-    const refPrice = trip.price_full || 0;
-    balance = refPrice > 0 ? Math.max(0, refPrice - totalPaid) : 0;
-  }
+  // final_payment defaults to price_full
+  const finalPaymentRaw = document.getElementById('part-final-payment').value;
+  const final_payment = finalPaymentRaw !== ''
+    ? parseInt(finalPaymentRaw)
+    : (state.currentTrip?.price_full || 0);
+
+  // balance = final_payment - total paid
+  const balance = Math.max(0, final_payment - totalPaid);
 
   // Check capacity (only for new non-waitlist entries)
   const isWaitlist = state.addingToWaitlist;
@@ -472,7 +472,7 @@ async function saveParticipant() {
     installment4_method:  document.getElementById('part-inst4-method').value   || null,
     installment4_date:    document.getElementById('part-inst4-date').value      || null,
     balance,
-    final_payment:        parseInt(document.getElementById('part-final-payment').value) || 0,
+    final_payment,
   };
 
   let error;
@@ -588,7 +588,8 @@ async function loadCosts() {
     .from('trip_costs')
     .select('*')
     .eq('trip_id', state.currentTrip.id)
-    .order('entry_date', { ascending: false });
+    .order('sort_order', { ascending: true, nullsFirst: true })
+    .order('created_at');
 
   if (error) return toast('Σφάλμα φόρτωσης εξόδων', 'error');
   state.currentCosts = data || [];
@@ -596,12 +597,13 @@ async function loadCosts() {
 }
 
 function renderCosts() {
-  applySortFilter('costs-table', () => state.currentCosts, renderCostsRows);
+  renderCostsInline(state.currentCosts);
 }
 
 async function saveCost() {
   const payload = {
     trip_id:        state.currentTrip.id,
+    sort_order:     state.currentCosts.length,
     booking_ref:    $('cost-booking-ref').value.trim()  || null,
     expense_type:   $('cost-expense-type').value        || null,
     cost:           parseInt($('cost-cost').value)      || 0,
@@ -1280,6 +1282,223 @@ async function saveReceipt() {
   loadReceipts();
 }
 
+
+// ── LEADS (Ενδιαφερόμενοι) ────────────────────────────────────
+async function loadLeads() {
+  const { data, error } = await db
+    .from('trip_leads')
+    .select('*')
+    .eq('trip_id', state.currentTrip.id)
+    .order('sort_order', { ascending: true, nullsFirst: true })
+    .order('created_at');
+
+  if (error) return toast('Σφάλμα φόρτωσης ενδιαφερομένων', 'error');
+  state.currentLeads = data || [];
+  renderLeads();
+}
+
+function renderLeads() {
+  const tbody = document.getElementById('leads-tbody');
+  if (!tbody) return;
+  const w = canWrite('participants');
+
+  if (!state.currentLeads.length) {
+    tbody.innerHTML = '<tr><td colspan="11" style="color:var(--text3);text-align:center;padding:1.5rem">Δεν υπάρχουν ενδιαφερόμενοι ακόμα.</td></tr>';
+    return;
+  }
+
+  function cell(lead, field, type) {
+    const val = lead[field] ?? '';
+    if (!w) {
+      if (type === 'date') return `<td>${val ? formatDate(val) : '—'}</td>`;
+      if (type === 'num')  return `<td>${val || '—'}</td>`;
+      return `<td>${esc(val || '—')}</td>`;
+    }
+    if (type === 'date') {
+      return `<td><input type="date" class="inline-input" value="${val}"
+        onchange="inlineSaveLead('${lead.id}','${field}',this.value)" /></td>`;
+    }
+    if (type === 'time') {
+      return `<td><input type="time" class="inline-input" value="${val}"
+        onchange="inlineSaveLead('${lead.id}','${field}',this.value)" /></td>`;
+    }
+    if (type === 'num') {
+      return `<td><input type="number" class="inline-input inline-num" value="${val||''}" placeholder="1"
+        onblur="inlineSaveLead('${lead.id}','${field}',this.value)" /></td>`;
+    }
+    return `<td><input type="text" class="inline-input" value="${esc(val)}"
+      style="min-width:90px"
+      onblur="inlineSaveLead('${lead.id}','${field}',this.value)" /></td>`;
+  }
+
+  tbody.innerHTML = state.currentLeads.map((lead, idx) => `
+    <tr data-id="${lead.id}" data-sort="${lead.sort_order??idx}" class="lead-row">
+      <td class="drag-handle lead-drag">⠿</td>
+      ${cell(lead,'first_name','text')}
+      ${cell(lead,'last_name','text')}
+      ${cell(lead,'email','text')}
+      ${cell(lead,'telephone','text')}
+      ${cell(lead,'date_of_birth','date')}
+      ${cell(lead,'num_persons','num')}
+      ${cell(lead,'deadline','date')}
+      ${cell(lead,'deadline_time','time')}
+      ${cell(lead,'comments','text')}
+      <td style="white-space:nowrap">
+        ${w ? `
+          <button class="btn btn-sm btn-primary" onclick="promoteLeadToParticipant('${lead.id}')" title="Μεταφορά στη λίστα">→</button>
+          <button class="btn-icon danger" onclick="deleteLead('${lead.id}')">🗑</button>
+        ` : ''}
+      </td>
+    </tr>
+  `).join('');
+
+  if (w) initLeadsDragAndDrop();
+}
+
+async function inlineSaveLead(id, field, value) {
+  const numFields = ['num_persons'];
+  const parsed = numFields.includes(field)
+    ? (parseInt(value)||1)
+    : (value === '' ? null : value);
+
+  const { error } = await db.from('trip_leads').update({ [field]: parsed }).eq('id', id);
+  if (error) toast('Σφάλμα αποθήκευσης', 'error');
+
+  const lead = state.currentLeads.find(x => x.id === id);
+  if (lead) lead[field] = parsed;
+}
+
+async function addNewLead() {
+  const { data, error } = await db.from('trip_leads').insert({
+    trip_id: state.currentTrip.id,
+    num_persons: 1,
+    sort_order: state.currentLeads.length,
+  }).select().single();
+
+  if (error) return toast('Σφάλμα προσθήκης', 'error');
+  state.currentLeads.push(data);
+  renderLeads();
+  // Focus first cell of new row
+  const newRow = document.querySelector(`tr[data-id="${data.id}"] input`);
+  if (newRow) newRow.focus();
+}
+
+async function deleteLead(id) {
+  if (!confirm('Διαγραφή ενδιαφερόμενου;')) return;
+  const { error } = await db.from('trip_leads').delete().eq('id', id);
+  if (error) return toast('Σφάλμα διαγραφής', 'error');
+  state.currentLeads = state.currentLeads.filter(l => l.id !== id);
+  renderLeads();
+  toast('Διαγράφηκε', 'success');
+}
+
+async function promoteLeadToParticipant(leadId) {
+  const lead = state.currentLeads.find(l => l.id === leadId);
+  if (!lead) return;
+
+  // Check if customer exists with same email or create new one
+  let customerId = null;
+
+  if (lead.email) {
+    const { data: existing } = await db.from('customers')
+      .select('id').eq('email', lead.email).single();
+    if (existing) customerId = existing.id;
+  }
+
+  if (!customerId) {
+    // Create new customer from lead data
+    const { data: newCust, error: custErr } = await db.from('customers').insert({
+      first_name:    lead.first_name || '',
+      last_name:     lead.last_name  || '',
+      email:         lead.email      || null,
+      telephone:     lead.telephone  || null,
+      date_of_birth: lead.date_of_birth || null,
+    }).select().single();
+
+    if (custErr) return toast('Σφάλμα δημιουργίας πελάτη: ' + custErr.message, 'error');
+    customerId = newCust.id;
+  }
+
+  // Check capacity
+  const max = state.currentTrip.num_persons || 0;
+  const isWaitlist = max > 0 && state.currentParticipants.length >= max;
+
+  // Add to participants
+  const { error: partErr } = await db.from('trip_participants').insert({
+    trip_id:     state.currentTrip.id,
+    customer_id: customerId,
+    is_waitlist: isWaitlist,
+    sort_order:  state.currentParticipants.length,
+  });
+
+  if (partErr) {
+    if (partErr.message?.includes('unique')) {
+      toast('Ο πελάτης συμμετέχει ήδη στο ταξίδι', 'error');
+    } else {
+      toast('Σφάλμα προσθήκης: ' + partErr.message, 'error');
+    }
+    return;
+  }
+
+  // Delete from leads
+  await db.from('trip_leads').delete().eq('id', leadId);
+  state.currentLeads = state.currentLeads.filter(l => l.id !== leadId);
+
+  toast(isWaitlist
+    ? 'Μεταφέρθηκε στους Εφεδρικούς (πλήρης λίστα)'
+    : 'Μεταφέρθηκε στη λίστα συμμετεχόντων', 'success');
+
+  renderLeads();
+  loadParticipants();
+}
+
+function initLeadsDragAndDrop() {
+  const tbody = document.getElementById('leads-tbody');
+  if (!tbody) return;
+  let dragSrc = null;
+
+  tbody.querySelectorAll('.lead-row').forEach(row => {
+    const handle = row.querySelector('.lead-drag');
+    if (!handle) return;
+
+    handle.addEventListener('mousedown', () => { row.draggable = true; });
+    handle.addEventListener('mouseup',   () => { row.draggable = false; });
+
+    row.addEventListener('dragstart', e => {
+      dragSrc = row;
+      e.dataTransfer.effectAllowed = 'move';
+      row.classList.add('dragging');
+    });
+    row.addEventListener('dragend', () => {
+      row.draggable = false;
+      row.classList.remove('dragging');
+      tbody.querySelectorAll('.lead-row').forEach(r => r.classList.remove('drag-over'));
+      saveLeadsSortOrder();
+    });
+    row.addEventListener('dragover', e => {
+      e.preventDefault();
+      if (row === dragSrc) return;
+      tbody.querySelectorAll('.lead-row').forEach(r => r.classList.remove('drag-over'));
+      row.classList.add('drag-over');
+    });
+    row.addEventListener('drop', e => {
+      e.preventDefault();
+      if (!dragSrc || dragSrc === row) return;
+      tbody.insertBefore(dragSrc, row);
+      row.classList.remove('drag-over');
+    });
+  });
+}
+
+async function saveLeadsSortOrder() {
+  const rows = [...document.querySelectorAll('#leads-tbody .lead-row')];
+  await Promise.all(rows.map((row, idx) =>
+    db.from('trip_leads').update({ sort_order: idx }).eq('id', row.dataset.id)
+  ));
+  const idOrder = rows.map(r => r.dataset.id);
+  state.currentLeads.sort((a,b) => idOrder.indexOf(a.id) - idOrder.indexOf(b.id));
+}
+
 // ── TABS ─────────────────────────────────────────────────────
 function applyTabPermissions(tabName) {
   const w = canWrite(tabName);
@@ -1322,7 +1541,7 @@ function switchTab(tabName) {
     loadWaitlist();
     initSortableTable('waitlist-table', () => state.currentWaitlist, renderWaitlistRows);
   }
-  if (tabName === 'rooms')    loadRooms();
+  if (tabName === 'leads')    loadLeads();
   if (tabName === 'receipts') loadReceipts();
 }
 
@@ -1489,6 +1708,7 @@ function bindStaticEvents() {
   document.getElementById('btn-save-room')?.addEventListener('click', saveRoom);
   document.getElementById('btn-save-room-assignment')?.addEventListener('click', saveRoomAssignment);
   document.getElementById('btn-save-receipt')?.addEventListener('click', saveReceipt);
+  document.getElementById('btn-add-lead')?.addEventListener('click', addNewLead);
 
   // User management
   document.getElementById('btn-new-user')?.addEventListener('click', openNewUser);
@@ -1645,12 +1865,22 @@ function getNestedVal(obj, col) {
 // Wrap render functions to support sort/filter
 // GROUP COLORS for visual grouping
 const GROUP_COLORS = [
-  '#dbeafe','#dcfce7','#fef9c3','#fce7f3','#ede9fe',
-  '#ffedd5','#cffafe','#f1f5f9','#fef2f2','#ecfdf5'
+  '#93c5fd','#86efac','#fde68a','#f9a8d4','#c4b5fd',
+  '#fdba74','#67e8f9','#6ee7b7','#fca5a5','#a5f3fc'
 ];
 
 function renderParticipantsRows(rows) {
   renderParticipantsGrouped(rows);
+}
+
+function editableFinalPayment(p) {
+  const w = canWrite('participants');
+  // Default to trip's price_full if not set
+  const val = p.final_payment != null ? p.final_payment : (state.currentTrip?.price_full || 0);
+  if (!w) return `<td style="font-weight:500">${formatEur(val)}</td>`;
+  return `<td><input type="number" class="inline-input inline-num" value="${val||''}"
+    placeholder="${state.currentTrip?.price_full || 0}"
+    onblur="inlineSave('${p.id}','final_payment',this.value)" /></td>`;
 }
 
 function renderParticipantsGrouped(rows) {
@@ -1742,7 +1972,7 @@ function renderParticipantsGrouped(rows) {
     const gid = p.group_id;
     const isGrouped = gid !== null && gid !== undefined;
     const bgColor   = isGrouped ? groupColorMap[gid] : '';
-    const style     = bgColor ? `style="background:${bgColor}20"` : '';
+    const style     = bgColor ? `style="background:${bgColor}55;border-left:4px solid ${bgColor}"` : 'style="border-left:4px solid transparent"';
 
     let groupCells = '';
     if (isGrouped && !renderedGroups.has(gid)) {
@@ -1806,17 +2036,43 @@ function renderParticipantsGrouped(rows) {
 
 // ── INLINE SAVE ───────────────────────────────────────────────
 async function inlineSave(id, field, value) {
-  const parsed = ['deposit_amount','installment2_amount','installment3_amount',
-    'installment4_amount','balance','final_payment'].includes(field)
+  const numFields = ['deposit_amount','installment2_amount','installment3_amount',
+    'installment4_amount','final_payment'];
+  const parsed = numFields.includes(field)
     ? (parseInt(value) || 0) : (value || null);
 
-  const { error } = await db.from('trip_participants').update({ [field]: parsed }).eq('id', id);
-  if (error) { toast('Σφάλμα αποθήκευσης', 'error'); return; }
-
-  // Update local state
+  // Update local state first
   const p = state.currentParticipants.find(x => x.id === id);
   if (p) p[field] = parsed;
+
+  // Auto-recalculate balance
+  const updatePayload = { [field]: parsed };
+  if (numFields.includes(field)) {
+    const balance = calcBalance(p);
+    updatePayload.balance = balance;
+    if (p) p.balance = balance;
+    // Update balance cell in DOM immediately
+    const row = document.querySelector(`tr[data-id="${id}"]`);
+    if (row) {
+      const balCell = row.querySelector('.balance-cell');
+      if (balCell) balCell.textContent = balance > 0 ? formatEur(balance) : '0 €';
+    }
+  }
+
+  const { error } = await db.from('trip_participants').update(updatePayload).eq('id', id);
+  if (error) { toast('Σφάλμα αποθήκευσης', 'error'); return; }
+
   updateParticipantCount();
+}
+
+function calcBalance(p) {
+  if (!p) return 0;
+  const total = (p.final_payment || 0);
+  const paid  = (p.deposit_amount || 0) +
+                (p.installment2_amount || 0) +
+                (p.installment3_amount || 0) +
+                (p.installment4_amount || 0);
+  return Math.max(0, total - paid);
 }
 
 // ── GROUPING ──────────────────────────────────────────────────
@@ -1942,29 +2198,135 @@ function renderWaitlistRows(rows) {
 }
 
 function renderCostsRows(rows) {
+  renderCostsInline(rows);
+}
+
+function renderCostsInline(rows) {
   const tbody = document.getElementById('costs-tbody');
+  if (!tbody) return;
+  const w = canWrite('costs');
+
   if (!rows.length) {
-    tbody.innerHTML = '<tr><td colspan="9" style="color:var(--text3);text-align:center;padding:1.5rem">Δεν υπάρχουν έξοδα ακόμα.</td></tr>';
+    tbody.innerHTML = `<tr><td colspan="13" style="color:var(--text3);text-align:center;padding:1.5rem">Δεν υπάρχουν έξοδα ακόμα.</td></tr>`;
     return;
   }
-  tbody.innerHTML = rows.map(c => `
-    <tr>
-      <td>${esc(c.booking_ref || '—')}</td>
-      <td>${c.expense_type || '—'}</td>
-      <td>${formatEur(c.cost)}</td>
-      <td>${formatEur(c.amount_eur)}</td>
-      <td>${c.payment_method || '—'}</td>
-      <td>${c.entry_date ? formatDate(c.entry_date) : '—'}</td>
-      <td><span class="badge ${c.is_paid ? 'badge-green' : 'badge-gray'}">${c.is_paid ? 'Ναι' : 'Όχι'}</span></td>
-      <td><span class="badge ${c.has_invoice ? 'badge-green' : 'badge-gray'}">${c.has_invoice ? 'Ναι' : 'Όχι'}</span></td>
-      <td>
-        ${canWrite('costs') ? `
-          <button class="btn-icon" onclick="editCost('${c.id}')">✏️</button>
-          <button class="btn-icon danger" onclick="deleteCost('${c.id}')">🗑</button>
-        ` : ''}
-      </td>
+
+  const EXPENSE_METHODS = [
+    'ALPHA (ΕΜΒΑΣΜΑ)','ALPHA (ΚΑΡΤΑ)',
+    'EUROBANK (ΕΜΒΑΣΜΑ)','EUROBANK (ΚΑΡΤΑ)',
+    'ΕΘΝΙΚΗ (ΕΜΒΑΣΜΑ)','ΕΘΝΙΚΗ (ΚΑΡΤΑ)',
+    'REVOLUT (ΕΜΒΑΣΜΑ)','REVOLUT (ΚΑΡΤΑ)',
+    'ΜΕΤΡΗΤΑ'
+  ];
+
+  function cell(c, field, type, opts) {
+    const val = c[field] ?? '';
+    if (!w) {
+      if (type === 'bool') return `<td><span class="badge ${val ? 'badge-green':'badge-gray'}">${val?'Ναι':'Όχι'}</span></td>`;
+      if (type === 'eur')  return `<td>${formatEur(val)}</td>`;
+      if (type === 'date') return `<td>${val ? formatDate(val) : '—'}</td>`;
+      return `<td>${esc(val||'—')}</td>`;
+    }
+    if (type === 'bool') {
+      return `<td style="text-align:center"><input type="checkbox" class="inline-checkbox" ${val?'checked':''}
+        onchange="inlineSaveCost('${c.id}','${field}',this.checked)" /></td>`;
+    }
+    if (type === 'select') {
+      const options = opts.map(o => `<option value="${o}" ${val===o?'selected':''}>${o}</option>`).join('');
+      return `<td><select class="inline-select" onchange="inlineSaveCost('${c.id}','${field}',this.value)">
+        <option value="">—</option>${options}</select></td>`;
+    }
+    if (type === 'date') {
+      return `<td><input type="date" class="inline-input" value="${val}"
+        onchange="inlineSaveCost('${c.id}','${field}',this.value)" /></td>`;
+    }
+    if (type === 'num') {
+      return `<td><input type="number" class="inline-input inline-num" value="${val||''}" placeholder="0"
+        onblur="inlineSaveCost('${c.id}','${field}',this.value)" /></td>`;
+    }
+    return `<td><input type="text" class="inline-input" value="${esc(val)}"
+      onblur="inlineSaveCost('${c.id}','${field}',this.value)" /></td>`;
+  }
+
+  tbody.innerHTML = rows.map((c, idx) => `
+    <tr data-id="${c.id}" data-sort="${c.sort_order??idx}" class="cost-row">
+      <td class="drag-handle cost-drag">⠿</td>
+      ${cell(c,'booking_ref','text')}
+      ${cell(c,'expense_type','select',['ΞΕΝΟΔΟΧΕΙΟ','ΑΕΡΟΠΟΡΙΚΑ'])}
+      ${cell(c,'cost','num')}
+      ${cell(c,'local_currency','text')}
+      ${cell(c,'amount_eur','num')}
+      ${cell(c,'payment_method','select',EXPENSE_METHODS)}
+      ${cell(c,'payment_date','date')}
+      ${cell(c,'entry_date','date')}
+      ${cell(c,'is_paid','bool')}
+      ${cell(c,'has_invoice','bool')}
+      ${cell(c,'invoice_name','text')}
+      <td>${w?`<button class="btn-icon danger" onclick="deleteCost('${c.id}')">🗑</button>`:''}</td>
     </tr>
   `).join('');
+
+  if (w) initCostsDragAndDrop();
+}
+
+async function inlineSaveCost(id, field, value) {
+  const numFields = ['cost','amount_eur'];
+  const parsed = numFields.includes(field)
+    ? (parseInt(value)||0)
+    : (value === '' ? null : value);
+
+  const { error } = await db.from('trip_costs').update({ [field]: parsed }).eq('id', id);
+  if (error) toast('Σφάλμα αποθήκευσης', 'error');
+
+  const c = state.currentCosts.find(x => x.id === id);
+  if (c) c[field] = parsed;
+}
+
+function initCostsDragAndDrop() {
+  const tbody = document.getElementById('costs-tbody');
+  if (!tbody) return;
+  let dragSrc = null;
+
+  tbody.querySelectorAll('.cost-row').forEach(row => {
+    const handle = row.querySelector('.cost-drag');
+    if (!handle) return;
+
+    handle.addEventListener('mousedown', () => { row.draggable = true; });
+    handle.addEventListener('mouseup',   () => { row.draggable = false; });
+
+    row.addEventListener('dragstart', e => {
+      dragSrc = row;
+      e.dataTransfer.effectAllowed = 'move';
+      row.classList.add('dragging');
+    });
+    row.addEventListener('dragend', () => {
+      row.draggable = false;
+      row.classList.remove('dragging');
+      tbody.querySelectorAll('.cost-row').forEach(r => r.classList.remove('drag-over'));
+      saveCostsSortOrder();
+    });
+    row.addEventListener('dragover', e => {
+      e.preventDefault();
+      if (row === dragSrc) return;
+      tbody.querySelectorAll('.cost-row').forEach(r => r.classList.remove('drag-over'));
+      row.classList.add('drag-over');
+    });
+    row.addEventListener('drop', e => {
+      e.preventDefault();
+      if (!dragSrc || dragSrc === row) return;
+      tbody.insertBefore(dragSrc, row);
+      row.classList.remove('drag-over');
+    });
+  });
+}
+
+async function saveCostsSortOrder() {
+  const rows = [...document.querySelectorAll('#costs-tbody .cost-row')];
+  await Promise.all(rows.map((row, idx) =>
+    db.from('trip_costs').update({ sort_order: idx }).eq('id', row.dataset.id)
+  ));
+  const idOrder = rows.map(r => r.dataset.id);
+  state.currentCosts.sort((a,b) => idOrder.indexOf(a.id) - idOrder.indexOf(b.id));
 }
 
 function renderCustomersRows(rows) {

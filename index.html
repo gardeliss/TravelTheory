@@ -136,7 +136,7 @@
           <button class="tab" data-tab="pricing">Τιμές</button>
           <button class="tab" data-tab="tasks">Tasks</button>
           <button class="tab" data-tab="waitlist">Εφεδρικοί</button>
-          <button class="tab" data-tab="rooms">Room Plan</button>
+          <button class="tab" data-tab="leads">Ενδιαφερόμενοι</button>
           <button class="tab" data-tab="receipts">Αποδείξεις / Τιμολόγια</button>
         </div>
 
@@ -185,50 +185,28 @@
           <div class="panel-toolbar">
             <button class="btn btn-primary btn-sm" id="btn-add-cost">+ Νέο Έξοδο</button>
           </div>
-          <table class="data-table sortable-table" id="costs-table">
-            <thead>
-              <tr>
-                <th data-col="booking_ref" data-type="text">Αρ. Κράτησης <span class="sort-icon">⇅</span></th>
-                <th data-col="expense_type" data-type="text" data-filterable="true">Τύπος <span class="sort-icon">⇅</span></th>
-                <th data-col="cost" data-type="num">Κόστος € <span class="sort-icon">⇅</span></th>
-                <th data-col="amount_eur" data-type="num">Ποσό € <span class="sort-icon">⇅</span></th>
-                <th data-col="payment_method" data-type="text" data-filterable="true">Τρόπος Πληρ. <span class="sort-icon">⇅</span></th>
-                <th data-col="entry_date" data-type="date">Ημ/νία <span class="sort-icon">⇅</span></th>
-                <th data-col="is_paid" data-type="text" data-filterable="true">Πληρώθηκε <span class="sort-icon">⇅</span></th>
-                <th>Τιμολόγιο</th>
-                <th></th>
-              </tr>
-              <tr class="filter-row" id="costs-filter-row">
-                <td><input class="filter-input" data-col="booking_ref" placeholder="Φίλτρο..." /></td>
-                <td>
-                  <select class="filter-input" data-col="expense_type">
-                    <option value="">Όλα</option>
-                    <option>ΞΕΝΟΔΟΧΕΙΟ</option><option>ΑΕΡΟΠΟΡΙΚΑ</option>
-                  </select>
-                </td>
-                <td></td><td></td>
-                <td>
-                  <select class="filter-input" data-col="payment_method">
-                    <option value="">Όλα</option>
-                    <option>ALPHA (ΕΜΒΑΣΜΑ)</option><option>ALPHA (ΚΑΡΤΑ)</option>
-                    <option>EUROBANK (ΕΜΒΑΣΜΑ)</option><option>EUROBANK (ΚΑΡΤΑ)</option>
-                    <option>ΕΘΝΙΚΗ (ΕΜΒΑΣΜΑ)</option><option>ΕΘΝΙΚΗ (ΚΑΡΤΑ)</option>
-                    <option>REVOLUT (ΕΜΒΑΣΜΑ)</option><option>REVOLUT (ΚΑΡΤΑ)</option>
-                    <option>ΜΕΤΡΗΤΑ</option>
-                  </select>
-                </td>
-                <td></td>
-                <td>
-                  <select class="filter-input" data-col="is_paid">
-                    <option value="">Όλα</option>
-                    <option value="true">Ναι</option><option value="false">Όχι</option>
-                  </select>
-                </td>
-                <td></td><td></td>
-              </tr>
-            </thead>
-            <tbody id="costs-tbody"></tbody>
-          </table>
+          <div id="costs-table-wrap" style="overflow-x:auto">
+            <table class="data-table" id="costs-table" style="min-width:1100px;font-size:.8rem">
+              <thead>
+                <tr>
+                  <th style="width:28px"></th>
+                  <th>Αρ. Κράτησης</th>
+                  <th>Τύπος</th>
+                  <th>Κόστος €</th>
+                  <th>Τοπικό Νόμισμα</th>
+                  <th>Ποσό €</th>
+                  <th>Τρόπος Πληρ.</th>
+                  <th>Ημ/νία Εξόφλ.</th>
+                  <th>Ημ/νία Καταχ.</th>
+                  <th>Πληρώθηκε</th>
+                  <th>Τιμολόγιο</th>
+                  <th>Όνομα Τιμολ.</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody id="costs-tbody"></tbody>
+            </table>
+          </div>
         </div>
 
         <!-- Tab: Financials -->
@@ -286,12 +264,31 @@
           </table>
         </div>
 
-        <!-- Tab: Rooms -->
-        <div id="tab-rooms" class="tab-panel hidden">
+        <!-- Tab: Leads -->
+        <div id="tab-leads" class="tab-panel hidden">
           <div class="panel-toolbar">
-            <button class="btn btn-primary btn-sm" id="btn-add-room">+ Νέο Δωμάτιο</button>
+            <button class="btn btn-primary btn-sm" id="btn-add-lead">+ Νέος Ενδιαφερόμενος</button>
           </div>
-          <div id="rooms-content"></div>
+          <div id="leads-table-wrap" style="overflow-x:auto">
+            <table class="data-table" id="leads-table" style="min-width:900px;font-size:.8rem">
+              <thead>
+                <tr>
+                  <th style="width:28px"></th>
+                  <th>Όνομα</th>
+                  <th>Επώνυμο</th>
+                  <th>Email</th>
+                  <th>Τηλέφωνο</th>
+                  <th>Ημ/νία Γέν.</th>
+                  <th>Άτομα</th>
+                  <th>Διορία ως</th>
+                  <th>Ώρα</th>
+                  <th>Σχόλια</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody id="leads-tbody"></tbody>
+            </table>
+          </div>
         </div>
 
         <!-- Tab: Receipts -->
