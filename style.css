@@ -1024,23 +1024,25 @@ input[type="date"]::-webkit-calendar-picker-indicator {
   white-space: nowrap;
 }
 
-/* Date columns — tight fit */
-#participants-table th:has(+ th),
-#participants-table td {
-  white-space: nowrap;
-}
-
-/* Tight date inputs */
+/* Tight date inputs — width only, preserve height */
 #participants-table input[type="date"] {
-  width: 110px;
+  width: 108px;
   min-width: unset;
-  padding: .1rem .2rem;
-  font-size: .75rem;
+  max-width: 108px;
 }
 
-/* Wider final payment cell */
-#participants-table .inline-input[style*="min-width:85px"] {
-  min-width: 85px;
+/* Payment method — fixed width */
+#participants-table .inline-select {
+  width: auto;
+  min-width: 80px;
+  max-width: 130px;
+}
+
+/* Final payment — fixed width */
+#participants-table input.inline-input[onblur*="final_payment"] {
+  width: 80px;
+  min-width: 80px;
+  max-width: 80px;
 }
 
 .participant-checkbox {

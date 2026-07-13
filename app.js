@@ -1888,7 +1888,7 @@ function editableFinalPayment(p) {
   const defaultPrice = state.currentTrip?.price_full || 0;
   const val = p.final_payment != null ? p.final_payment : defaultPrice;
   if (!w) return `<td style="font-weight:500">${formatEur(val)}</td>`;
-  return `<td><input type="number" class="inline-input" style="min-width:85px;text-align:right" value="${val}"
+  return `<td><input type="number" class="inline-input inline-num" value="${val}"
     onblur="inlineSave('${p.id}','final_payment',this.value)"
     oninput="previewBalance('${p.id}',this.value)" /></td>`;
 }
