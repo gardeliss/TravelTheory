@@ -1975,26 +1975,40 @@ function renderParticipantsGrouped(rows) {
     const gid = p.group_id;
     const isGrouped = gid !== null && gid !== undefined;
     const bgColor   = isGrouped ? groupColorMap[gid] : '';
-    const style     = bgColor ? `style="background:${bgColor}55;border-left:4px solid ${bgColor}"` : 'style="border-left:4px solid transparent"';
+    const style     = bgColor
+      ? `style="background:${bgColor}55;border-left:4px solid ${bgColor}"`
+      : 'style="border-left:4px solid transparent"';
 
-    let groupCells = '';
+    // Tipo cell — merged for group, normal for solo
+    let tipoCell = '';
     if (isGrouped && !renderedGroups.has(gid)) {
-      // First row of group — render merged cells
       const groupSize = groupMap[gid].length;
       renderedGroups.add(gid);
-      groupCells = `
-        <td rowspan="${groupSize}" class="group-cell" style="background:${bgColor};border-left:3px solid ${bgColor}88">
-          <div class="group-cell-inner">
-            <span class="group-label">Ομάδα ${gid}</span>
-            ${w ? `<button class="btn-icon danger" title="Διάλυση ομάδας" onclick="dissolveGroup(${gid})" style="font-size:.7rem">✕</button>` : ''}
-          </div>
+      const tipoVal = p.solo_couple || '';
+      const tipoOpts = ['ΦΙΛΟΙ','ΖΕΥΓΑΡΙ','SOLO','ΠΑΡΕΑ','ΑΔΕΡΦΙΑ','ΓΟΝΕΑΣ - ΠΑΙΔΙ','LEADER'];
+      const tipoSelect = w
+        ? `<select class="inline-select" style="font-weight:600"
+             onchange="inlineSaveGroup(${gid},'solo_couple',this.value)">
+             <option value="">—</option>
+             ${tipoOpts.map(o => `<option value="${o}" ${tipoVal===o?'selected':''}>${o}</option>`).join('')}
+           </select>`
+        : `<strong>${esc(tipoVal||'—')}</strong>`;
+
+      tipoCell = `
+        <td rowspan="${groupSize}" class="group-tipo-cell"
+            style="background:${bgColor}99;border-left:4px solid ${bgColor};vertical-align:middle;text-align:center">
+          ${tipoSelect}
+          ${w ? `<div style="margin-top:.3rem">
+            <button class="btn-icon danger" title="Διάλυση ομάδας"
+              onclick="dissolveGroup(${gid})" style="font-size:.7rem">✕ Διάλυση</button>
+          </div>` : ''}
         </td>`;
     } else if (isGrouped) {
-      // Skip — already rendered via rowspan
-      groupCells = '';
+      tipoCell = ''; // rowspan handles it
     } else {
-      // Not in a group
-      groupCells = `<td class="group-cell-empty"></td>`;
+      // Not in a group — editable solo_couple
+      tipoCell = editableCell(p, 'solo_couple', 'select',
+        ['ΦΙΛΟΙ','ΖΕΥΓΑΡΙ','SOLO','ΠΑΡΕΑ','ΑΔΕΡΦΙΑ','ΓΟΝΕΑΣ - ΠΑΙΔΙ','LEADER']);
     }
 
     const dragHandle = w ? `<td class="drag-handle" draggable="false">⠿</td>` : '<td></td>';
@@ -2006,7 +2020,7 @@ function renderParticipantsGrouped(rows) {
         ${checkbox}
         <td>${p.customers ? esc(p.customers.last_name) : '—'}</td>
         <td>${p.customers ? esc(p.customers.first_name) : '—'}</td>
-        ${editableCell(p, 'solo_couple', 'select', ['ΦΙΛΟΙ','ΖΕΥΓΑΡΙ','SOLO','ΠΑΡΕΑ','ΑΔΕΡΦΙΑ','ΓΟΝΕΑΣ - ΠΑΙΔΙ','LEADER'])}
+        ${tipoCell}
         ${editableCell(p, 'room_type',   'select', ['SINGLE','TWIN','DOUBLE','TRIPLE'])}
         ${editableCell(p, 'deposit_amount',  'eur')}
         ${editableCell(p, 'deposit_method',  'select-grouped')}
@@ -2022,7 +2036,6 @@ function renderParticipantsGrouped(rows) {
         ${editableCell(p, 'installment4_date',   'date')}
         <td class="balance-cell" style="font-weight:600;color:${calcBalance(p)>0?'#b45309':'#15803d'};text-align:right">${formatEur(calcBalance(p))}</td>
         ${editableFinalPayment(p)}
-        ${groupCells}
         <td>
           ${w ? `<button class="btn-icon danger" onclick="deleteParticipant('${p.id}')" title="Διαγραφή">🗑</button>` : ''}
         </td>
@@ -2109,6 +2122,21 @@ function calcBalance(p) {
                 (p.installment3_amount || 0) +
                 (p.installment4_amount || 0);
   return Math.max(0, total - paid);
+}
+
+// ── INLINE SAVE GROUP ────────────────────────────────────────
+async function inlineSaveGroup(groupId, field, value) {
+  const members = state.currentParticipants.filter(p => p.group_id === groupId);
+  const ids = members.map(p => p.id);
+
+  const { error } = await db.from('trip_participants')
+    .update({ [field]: value || null })
+    .in('id', ids);
+
+  if (error) { toast('Σφάλμα αποθήκευσης', 'error'); return; }
+
+  // Update local state
+  members.forEach(p => { p[field] = value || null; });
 }
 
 // ── GROUPING ──────────────────────────────────────────────────

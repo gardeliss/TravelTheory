@@ -1042,3 +1042,14 @@ input[type="date"]::-webkit-calendar-picker-indicator {
 /* Costs & Leads table drag */
 .cost-row.dragging, .lead-row.dragging { opacity: .4; }
 .cost-row.drag-over td, .lead-row.drag-over td { border-top: 2px solid var(--accent); }
+
+/* ── GROUP TIPO CELL ─────────────────────────────────────────── */
+.group-tipo-cell {
+  min-width: 110px;
+  padding: .4rem .5rem !important;
+}
+
+.group-tipo-cell .inline-select {
+  font-weight: 600;
+  text-align: center;
+}
