@@ -373,7 +373,7 @@ async function deleteCustomer(id) {
 async function loadParticipants() {
   const { data, error } = await db
     .from('trip_participants')
-    .select('*, customers(first_name, last_name)')
+    .select('*, customers(first_name, last_name, date_of_birth, passport_number, nationality, issue_date, expiry_date, telephone)')
     .eq('trip_id', state.currentTrip.id)
     .eq('is_waitlist', false)
     .order('sort_order', { ascending: true, nullsFirst: true })
@@ -1753,13 +1753,21 @@ function esc(str) {
 
 function formatDate(dateStr) {
   if (!dateStr) return '—';
-  const d = new Date(dateStr);
-  return d.toLocaleDateString('el-GR', { day:'2-digit', month:'2-digit', year:'numeric' });
+  return formatDateDisplay(dateStr);
 }
 
 function formatEur(val) {
-  if (val === null || val === undefined || val === 0) return '—';
+  if (val === null || val === undefined) return '—';
   return new Intl.NumberFormat('el-GR', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 }).format(val);
+}
+
+function formatDateDisplay(dateStr) {
+  if (!dateStr) return '—';
+  const d = new Date(dateStr);
+  const dd = String(d.getDate()).padStart(2,'0');
+  const mm = String(d.getMonth()+1).padStart(2,'0');
+  const yyyy = d.getFullYear();
+  return `${dd}-${mm}-${yyyy}`;
 }
 
 function toast(msg, type = 'success') {
@@ -1876,10 +1884,11 @@ function renderParticipantsRows(rows) {
 function editableFinalPayment(p) {
   const w = canWrite('participants');
   // Default to trip's price_full if not set
-  const val = p.final_payment != null ? p.final_payment : (state.currentTrip?.price_full || 0);
+  // Always use price_full as default if final_payment not explicitly set
+  const defaultPrice = state.currentTrip?.price_full || 0;
+  const val = p.final_payment != null ? p.final_payment : defaultPrice;
   if (!w) return `<td style="font-weight:500">${formatEur(val)}</td>`;
-  return `<td><input type="number" class="inline-input inline-num" value="${val||''}"
-    placeholder="${state.currentTrip?.price_full || 0}"
+  return `<td><input type="number" class="inline-input" style="min-width:85px;text-align:right" value="${val}"
     onblur="inlineSave('${p.id}','final_payment',this.value)"
     oninput="previewBalance('${p.id}',this.value)" /></td>`;
 }
@@ -2020,6 +2029,12 @@ function renderParticipantsGrouped(rows) {
         ${checkbox}
         <td>${p.customers ? esc(p.customers.last_name) : '—'}</td>
         <td>${p.customers ? esc(p.customers.first_name) : '—'}</td>
+        <td>${p.customers?.date_of_birth ? formatDateDisplay(p.customers.date_of_birth) : '—'}</td>
+        <td>${esc(p.customers?.passport_number || '—')}</td>
+        <td>${esc(p.customers?.nationality || '—')}</td>
+        <td>${p.customers?.issue_date ? formatDateDisplay(p.customers.issue_date) : '—'}</td>
+        <td>${p.customers?.expiry_date ? formatDateDisplay(p.customers.expiry_date) : '—'}</td>
+        <td>${esc(p.customers?.telephone || '—')}</td>
         ${tipoCell}
         ${editableCell(p, 'room_type',   'select', ['SINGLE','TWIN','DOUBLE','TRIPLE'])}
         ${editableCell(p, 'deposit_amount',  'eur')}
@@ -2034,7 +2049,7 @@ function renderParticipantsGrouped(rows) {
         ${editableCell(p, 'installment4_amount', 'eur')}
         ${editableCell(p, 'installment4_method', 'select-grouped')}
         ${editableCell(p, 'installment4_date',   'date')}
-        <td class="balance-cell" style="font-weight:600;color:${calcBalance(p)>0?'#b45309':'#15803d'};text-align:right">${formatEur(calcBalance(p))}</td>
+        <td class="balance-cell" style="font-weight:600;color:${calcBalance(p)>0?'#b45309':'#15803d'};text-align:right">${calcBalance(p) === 0 ? '0 €' : formatEur(calcBalance(p))}</td>
         ${editableFinalPayment(p)}
         <td>
           ${w ? `<button class="btn-icon danger" onclick="deleteParticipant('${p.id}')" title="Διαγραφή">🗑</button>` : ''}

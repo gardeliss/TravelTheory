@@ -1014,7 +1014,7 @@ input[type="date"]::-webkit-calendar-picker-indicator {
 }
 
 #participants-table {
-  min-width: 1400px;
+  min-width: 2200px;
   font-size: .8rem;
 }
 
@@ -1022,6 +1022,11 @@ input[type="date"]::-webkit-calendar-picker-indicator {
 #participants-table td {
   padding: .4rem .5rem;
   white-space: nowrap;
+}
+
+/* Wider final payment cell */
+#participants-table .inline-input[style*="min-width:85px"] {
+  min-width: 85px;
 }
 
 .participant-checkbox {
