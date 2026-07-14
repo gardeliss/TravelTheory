@@ -131,7 +131,7 @@
         <!-- Tabs -->
         <div class="tabs">
           <button class="tab active" data-tab="participants">Συμμετέχοντες</button>
-          <button class="tab" data-tab="costs">Έξοδα</button>
+          <button class="tab" data-tab="costs">Budget vs Έξοδα</button>
           <button class="tab" data-tab="financials">Λογιστική</button>
           <button class="tab" data-tab="pricing">Τιμές</button>
           <button class="tab" data-tab="tasks">Tasks</button>
@@ -185,24 +185,27 @@
           </div>
         </div>
 
-        <!-- Tab: Costs -->
+        <!-- Tab: Budget vs Έξοδα -->
         <div id="tab-costs" class="tab-panel hidden">
           <div class="panel-toolbar">
             <button class="btn btn-primary btn-sm" id="btn-add-cost">+ Νέο Έξοδο</button>
+            <button class="btn btn-secondary btn-sm" onclick="groupCostsSelected()">🔗 Ομαδοποίηση</button>
           </div>
           <div id="costs-table-wrap" style="overflow-x:auto">
-            <table class="data-table" id="costs-table" style="min-width:1100px;font-size:.8rem">
+            <table class="data-table" id="costs-table" style="min-width:1400px;font-size:.8rem">
               <thead>
                 <tr>
                   <th style="width:28px"></th>
+                  <th style="width:28px"></th>
                   <th>Αρ. Κράτησης</th>
-                  <th>Τύπος</th>
+                  <th style="width:108px">Deadline</th>
+                  <th>Σχόλια</th>
                   <th>Κόστος €</th>
+                  <th>Κατηγορία</th>
                   <th>Τοπικό Νόμισμα</th>
-                  <th>Ποσό €</th>
-                  <th>Τρόπος Πληρ.</th>
-                  <th>Ημ/νία Εξόφλ.</th>
-                  <th>Ημ/νία Καταχ.</th>
+                  <th>Ευρώ €</th>
+                  <th>Τράπεζα</th>
+                  <th style="width:108px">Ημ/νία Εξόφλ.</th>
                   <th>Πληρώθηκε</th>
                   <th>Τιμολόγιο</th>
                   <th>Όνομα Τιμολ.</th>
@@ -212,6 +215,7 @@
               <tbody id="costs-tbody"></tbody>
             </table>
           </div>
+          <div id="costs-summary" class="costs-summary-wrap"></div>
         </div>
 
         <!-- Tab: Financials -->

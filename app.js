@@ -2310,6 +2310,15 @@ function renderCostsInline(rows) {
       if (type === 'date') return `<td>${val ? formatDate(val) : '—'}</td>`;
       return `<td>${esc(val||'—')}</td>`;
     }
+    if (type === 'paid-select') {
+      const paidClass = val==='ΝΑΙ' ? 'badge-green' : val==='STAND BY' ? 'badge-yellow' : 'badge-gray';
+      if (!w) return `<td><span class="badge ${paidClass}">${val||'—'}</span></td>`;
+      return `<td><select class="inline-select" onchange="inlineSaveCost('${c.id}','${field}',this.value)">
+        <option value="">—</option>
+        <option value="ΝΑΙ" ${val==='ΝΑΙ'?'selected':''}>ΝΑΙ</option>
+        <option value="STAND BY" ${val==='STAND BY'?'selected':''}>STAND BY</option>
+      </select></td>`;
+    }
     if (type === 'bool') {
       return `<td style="text-align:center"><input type="checkbox" class="inline-checkbox" ${val?'checked':''}
         onchange="inlineSaveCost('${c.id}','${field}',this.checked)" /></td>`;
