@@ -2302,7 +2302,7 @@ function renderCostsInline(rows) {
     'ΜΕΤΡΗΤΑ'
   ];
 
-  function cell(c, field, type, opts) {
+  function cell(c, field, type, opts, extraStyle='') {
     const val = c[field] ?? '';
     if (!w) {
       if (type === 'bool') return `<td><span class="badge ${val ? 'badge-green':'badge-gray'}">${val?'Ναι':'Όχι'}</span></td>`;
@@ -2339,7 +2339,7 @@ function renderCostsInline(rows) {
       return `<td><input type="number" class="inline-input inline-num" value="${val||''}" placeholder="0"
         onblur="inlineSaveCost('${c.id}','${field}',this.value)" /></td>`;
     }
-    return `<td><input type="text" class="inline-input" value="${esc(val)}"
+    return `<td><input type="text" class="inline-input" style="${extraStyle}" value="${esc(val)}"
       onblur="inlineSaveCost('${c.id}','${field}',this.value)" /></td>`;
   }
 
@@ -2399,7 +2399,7 @@ function renderCostsInline(rows) {
         ${w ? `<td><input type="checkbox" class="cost-checkbox" data-id="${c.id}" /></td>` : '<td></td>'}
         ${cell(c,'booking_ref','text')}
         ${cell(c,'payment_date','date')}
-        ${cell(c,'comments','text')}
+        ${cell(c,'comments','text','','min-width:150px')}
         ${cell(c,'cost','num')}
         ${catCell}
         ${cell(c,'local_currency','text')}
