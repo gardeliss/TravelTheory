@@ -598,6 +598,7 @@ async function loadCosts() {
 
 function renderCosts() {
   renderCostsInline(state.currentCosts);
+  renderCostsSummary();
 }
 
 async function saveCost() {
@@ -2415,7 +2416,6 @@ function renderCostsInline(rows) {
 
   tbody.innerHTML = html;
   if (w) initCostsDragAndDrop();
-  renderCostsSummary();
 }
 
 async function inlineSaveCost(id, field, value) {
