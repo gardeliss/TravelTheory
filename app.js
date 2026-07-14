@@ -601,6 +601,75 @@ function renderCosts() {
   renderCostsSummary();
 }
 
+async function renderCostsSummary() {
+  const el = document.getElementById('costs-summary');
+  if (!el) return;
+
+  const trip  = state.currentTrip;
+  const costs = state.currentCosts;
+
+  const totalBudget   = costs.reduce((s, c) => s + (c.cost       || 0), 0);
+  const totalActualExp = costs.reduce((s, c) => s + (c.amount_eur || 0), 0);
+
+  // Count participants from DB
+  const { count } = await db
+    .from('trip_participants')
+    .select('*', { count: 'exact', head: true })
+    .eq('trip_id', trip.id)
+    .eq('is_waitlist', false);
+  const numParticipants = count || 0;
+
+  const pricePerPerson = trip.price_full || 0;
+  const estRevenue     = pricePerPerson * numParticipants;
+  const estProfit      = estRevenue - totalBudget;
+
+  // Actual revenue = sum of installments
+  let actualRevenue = 0;
+  if (state.currentParticipants.length > 0) {
+    actualRevenue = state.currentParticipants.reduce((s, p) =>
+      s + (p.deposit_amount||0) + (p.installment2_amount||0) +
+          (p.installment3_amount||0) + (p.installment4_amount||0), 0);
+  } else {
+    const { data: parts } = await db.from('trip_participants')
+      .select('deposit_amount,installment2_amount,installment3_amount,installment4_amount')
+      .eq('trip_id', trip.id).eq('is_waitlist', false);
+    if (parts) actualRevenue = parts.reduce((s, p) =>
+      s + (p.deposit_amount||0) + (p.installment2_amount||0) +
+          (p.installment3_amount||0) + (p.installment4_amount||0), 0);
+  }
+
+  const actualProfit = actualRevenue - totalActualExp;
+  const fmt = v => new Intl.NumberFormat('el-GR', { style:'currency', currency:'EUR', maximumFractionDigits:0 }).format(v);
+  const col = v => v >= 0 ? '#15803d' : '#dc2626';
+
+  el.innerHTML = `
+    <div class="costs-summary-grid">
+      <div class="costs-summary-card">
+        <div class="costs-summary-label">Σύνολο Budget (ΚΟΣΤΟΣ)</div>
+        <div class="costs-summary-value">${fmt(totalBudget)}</div>
+        <div class="costs-summary-divider"></div>
+        <div class="costs-summary-label">Estimated Revenue</div>
+        <div class="costs-summary-sub">${fmt(pricePerPerson)} × ${numParticipants} άτομα</div>
+        <div class="costs-summary-value">${fmt(estRevenue)}</div>
+        <div class="costs-summary-divider"></div>
+        <div class="costs-summary-label">Estimated Profit</div>
+        <div class="costs-summary-value" style="color:${col(estProfit)};font-size:1.3rem">${fmt(estProfit)}</div>
+      </div>
+      <div class="costs-summary-spacer"></div>
+      <div class="costs-summary-card">
+        <div class="costs-summary-label">Σύνολο Actual Expenses (€)</div>
+        <div class="costs-summary-value">${fmt(totalActualExp)}</div>
+        <div class="costs-summary-divider"></div>
+        <div class="costs-summary-label">Actual Revenue (Σύνολο Δόσεων)</div>
+        <div class="costs-summary-value">${fmt(actualRevenue)}</div>
+        <div class="costs-summary-divider"></div>
+        <div class="costs-summary-label">Actual Profit (Μικτό Κέρδος)</div>
+        <div class="costs-summary-value" style="color:${col(actualProfit)};font-size:1.3rem">${fmt(actualProfit)}</div>
+      </div>
+    </div>
+  `;
+}
+
 async function saveCost() {
   const payload = {
     trip_id:        state.currentTrip.id,
@@ -2303,7 +2372,7 @@ function renderCostsInline(rows) {
     'ΜΕΤΡΗΤΑ'
   ];
 
-  function cell(c, field, type, opts, extraStyle='') {
+  function cell(c, field, type, opts) {
     const val = c[field] ?? '';
     if (!w) {
       if (type === 'bool') return `<td><span class="badge ${val ? 'badge-green':'badge-gray'}">${val?'Ναι':'Όχι'}</span></td>`;
@@ -2314,10 +2383,7 @@ function renderCostsInline(rows) {
     if (type === 'paid-select') {
       const paidClass = val==='ΝΑΙ' ? 'badge-green' : val==='STAND BY' ? 'badge-yellow' : 'badge-gray';
       if (!w) return `<td><span class="badge ${paidClass}">${val||'—'}</span></td>`;
-      const paidBg = val==='ΝΑΙ' ? '#dcfce7' : val==='STAND BY' ? '#fef9c3' : '';
-      const paidColor = val==='ΝΑΙ' ? '#15803d' : val==='STAND BY' ? '#854d0e' : '';
-      return `<td><select class="inline-select" onchange="inlineSaveCost('${c.id}','${field}',this.value)"
-      style="background:${paidBg};color:${paidColor};font-weight:${paidBg?'600':'400'}">
+      return `<td><select class="inline-select" onchange="inlineSaveCost('${c.id}','${field}',this.value)">
         <option value="">—</option>
         <option value="ΝΑΙ" ${val==='ΝΑΙ'?'selected':''}>ΝΑΙ</option>
         <option value="STAND BY" ${val==='STAND BY'?'selected':''}>STAND BY</option>
@@ -2340,7 +2406,7 @@ function renderCostsInline(rows) {
       return `<td><input type="number" class="inline-input inline-num" value="${val||''}" placeholder="0"
         onblur="inlineSaveCost('${c.id}','${field}',this.value)" /></td>`;
     }
-    return `<td><input type="text" class="inline-input" style="${extraStyle}" value="${esc(val)}"
+    return `<td><input type="text" class="inline-input" value="${esc(val)}"
       onblur="inlineSaveCost('${c.id}','${field}',this.value)" /></td>`;
   }
 
@@ -2400,7 +2466,7 @@ function renderCostsInline(rows) {
         ${w ? `<td><input type="checkbox" class="cost-checkbox" data-id="${c.id}" /></td>` : '<td></td>'}
         ${cell(c,'booking_ref','text')}
         ${cell(c,'payment_date','date')}
-        ${cell(c,'comments','text','','min-width:150px')}
+        ${cell(c,'comments','text')}
         ${cell(c,'cost','num')}
         ${catCell}
         ${cell(c,'local_currency','text')}
@@ -2416,6 +2482,7 @@ function renderCostsInline(rows) {
 
   tbody.innerHTML = html;
   if (w) initCostsDragAndDrop();
+  renderCostsSummary();
 }
 
 async function inlineSaveCost(id, field, value) {
