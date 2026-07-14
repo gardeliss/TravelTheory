@@ -2313,7 +2313,10 @@ function renderCostsInline(rows) {
     if (type === 'paid-select') {
       const paidClass = val==='ΝΑΙ' ? 'badge-green' : val==='STAND BY' ? 'badge-yellow' : 'badge-gray';
       if (!w) return `<td><span class="badge ${paidClass}">${val||'—'}</span></td>`;
-      return `<td><select class="inline-select" onchange="inlineSaveCost('${c.id}','${field}',this.value)">
+      const paidBg = val==='ΝΑΙ' ? '#dcfce7' : val==='STAND BY' ? '#fef9c3' : '';
+      const paidColor = val==='ΝΑΙ' ? '#15803d' : val==='STAND BY' ? '#854d0e' : '';
+      return `<td><select class="inline-select" onchange="inlineSaveCost('${c.id}','${field}',this.value)"
+      style="background:${paidBg};color:${paidColor};font-weight:${paidBg?'600':'400'}">
         <option value="">—</option>
         <option value="ΝΑΙ" ${val==='ΝΑΙ'?'selected':''}>ΝΑΙ</option>
         <option value="STAND BY" ${val==='STAND BY'?'selected':''}>STAND BY</option>
