@@ -1074,3 +1074,63 @@ input[type="date"]::-webkit-calendar-picker-indicator {
   font-weight: 600;
   text-align: center;
 }
+
+/* ── COSTS SUMMARY ───────────────────────────────────────────── */
+.costs-summary-wrap {
+  margin-top: 1.5rem;
+  padding-top: 1.2rem;
+  border-top: 2px solid var(--border);
+}
+
+.costs-summary-grid {
+  display: flex;
+  gap: 1rem;
+  align-items: flex-start;
+}
+
+.costs-summary-card {
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 1.2rem 1.5rem;
+  min-width: 280px;
+  display: flex;
+  flex-direction: column;
+  gap: .3rem;
+}
+
+.costs-summary-spacer { flex: 1; }
+
+.costs-summary-label {
+  font-size: .75rem;
+  color: var(--text3);
+  text-transform: uppercase;
+  letter-spacing: .04em;
+  margin-top: .4rem;
+}
+
+.costs-summary-value {
+  font-size: 1.15rem;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.costs-summary-sub {
+  font-size: .78rem;
+  color: var(--text2);
+  margin-bottom: .1rem;
+}
+
+.costs-summary-divider {
+  height: 1px;
+  background: var(--border);
+  margin: .5rem 0 .2rem;
+}
+
+/* cost checkbox */
+.cost-checkbox {
+  width: 15px;
+  height: 15px;
+  accent-color: var(--accent);
+  cursor: pointer;
+}

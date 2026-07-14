@@ -604,17 +604,18 @@ async function saveCost() {
   const payload = {
     trip_id:        state.currentTrip.id,
     sort_order:     state.currentCosts.length,
-    booking_ref:    $('cost-booking-ref').value.trim()  || null,
-    expense_type:   $('cost-expense-type').value        || null,
-    cost:           parseInt($('cost-cost').value)      || 0,
+    booking_ref:    $('cost-booking-ref').value.trim()    || null,
+    payment_date:   $('cost-payment-date').value          || null,
+    comments:       $('cost-comments').value.trim()       || null,
+    cost:           parseInt($('cost-cost').value)        || 0,
+    expense_type:   $('cost-expense-type').value.trim()   || null,
     local_currency: $('cost-local-currency').value.trim() || null,
     amount_eur:     parseInt($('cost-amount-eur').value)  || 0,
-    payment_method: $('cost-payment-method').value      || null,
-    payment_date:   $('cost-payment-date').value        || null,
-    entry_date:     $('cost-entry-date').value          || null,
-    is_paid:        $('cost-is-paid').checked,
+    payment_method: $('cost-payment-method').value        || null,
+    entry_date:     $('cost-entry-date').value            || null,
+    is_paid:        $('cost-is-paid').value               || null,
     has_invoice:    $('cost-has-invoice').checked,
-    invoice_name:   $('cost-invoice-name').value.trim() || null,
+    invoice_name:   $('cost-invoice-name').value.trim()   || null,
   };
 
   let error;
@@ -637,14 +638,15 @@ async function editCost(id) {
   setText('modal-cost-title', 'Επεξεργασία Εξόδου');
 
   $('cost-booking-ref').value     = c.booking_ref    || '';
-  $('cost-expense-type').value    = c.expense_type   || '';
+  $('cost-payment-date').value    = c.payment_date   || '';
+  $('cost-comments').value        = c.comments       || '';
   $('cost-cost').value            = c.cost           || '';
+  $('cost-expense-type').value    = c.expense_type   || '';
   $('cost-local-currency').value  = c.local_currency || '';
   $('cost-amount-eur').value      = c.amount_eur     || '';
   $('cost-payment-method').value  = c.payment_method || '';
-  $('cost-payment-date').value    = c.payment_date   || '';
   $('cost-entry-date').value      = c.entry_date     || '';
-  $('cost-is-paid').checked       = c.is_paid;
+  $('cost-is-paid').value         = c.is_paid        || '';
   $('cost-has-invoice').checked   = c.has_invoice;
   $('cost-invoice-name').value    = c.invoice_name   || '';
   openModal('modal-cost');
@@ -1586,10 +1588,12 @@ function resetParticipantForm() {
 }
 
 function resetCostForm() {
-  ['cost-booking-ref','cost-expense-type','cost-cost','cost-local-currency',
-   'cost-amount-eur','cost-payment-method','cost-payment-date','cost-entry-date',
-   'cost-invoice-name'].forEach(id => { $(id).value = ''; });
-  $('cost-is-paid').checked    = false;
+  ['cost-booking-ref','cost-payment-date','cost-comments','cost-cost',
+   'cost-expense-type','cost-local-currency','cost-amount-eur',
+   'cost-payment-method','cost-entry-date','cost-invoice-name'].forEach(id => {
+    const el = $(id); if (el) el.value = '';
+  });
+  $('cost-is-paid').value       = '';
   $('cost-has-invoice').checked = false;
   setText('modal-cost-title', 'Νέο Έξοδο');
   state.editingId = null;
@@ -2327,38 +2331,122 @@ function renderCostsInline(rows) {
       onblur="inlineSaveCost('${c.id}','${field}',this.value)" /></td>`;
   }
 
-  tbody.innerHTML = rows.map((c, idx) => `
-    <tr data-id="${c.id}" data-sort="${c.sort_order??idx}" class="cost-row">
-      <td class="drag-handle cost-drag">⠿</td>
-      ${cell(c,'booking_ref','text')}
-      ${cell(c,'expense_type','select',['ΞΕΝΟΔΟΧΕΙΟ','ΑΕΡΟΠΟΡΙΚΑ'])}
-      ${cell(c,'cost','num')}
-      ${cell(c,'local_currency','text')}
-      ${cell(c,'amount_eur','num')}
-      ${cell(c,'payment_method','select',EXPENSE_METHODS)}
-      ${cell(c,'payment_date','date')}
-      ${cell(c,'entry_date','date')}
-      ${cell(c,'is_paid','bool')}
-      ${cell(c,'has_invoice','bool')}
-      ${cell(c,'invoice_name','text')}
-      <td>${w?`<button class="btn-icon danger" onclick="deleteCost('${c.id}')">🗑</button>`:''}</td>
-    </tr>
-  `).join('');
+  // Build group map
+  const groupMap = {};
+  rows.forEach(c => {
+    if (c.group_id !== null && c.group_id !== undefined) {
+      if (!groupMap[c.group_id]) groupMap[c.group_id] = [];
+      groupMap[c.group_id].push(c);
+    }
+  });
 
+  const COST_GROUP_COLORS = [
+    '#93c5fd','#86efac','#fde68a','#f9a8d4','#c4b5fd',
+    '#fdba74','#67e8f9','#6ee7b7','#fca5a5','#a5f3fc'
+  ];
+  const groupIds = Object.keys(groupMap);
+  const groupColorMap = {};
+  groupIds.forEach((gid, i) => { groupColorMap[gid] = COST_GROUP_COLORS[i % COST_GROUP_COLORS.length]; });
+
+  const renderedGroups = new Set();
+  let html = '';
+
+  rows.forEach((c, idx) => {
+    const gid = c.group_id;
+    const isGrouped = gid !== null && gid !== undefined;
+    const bgColor = isGrouped ? groupColorMap[gid] : '';
+    const rowStyle = bgColor
+      ? `style="background:${bgColor}55;border-left:4px solid ${bgColor}"`
+      : 'style="border-left:4px solid transparent"';
+
+    let catCell = '';
+    if (isGrouped && !renderedGroups.has(gid)) {
+      const groupSize = groupMap[gid].length;
+      renderedGroups.add(gid);
+      const catVal = c.expense_type || '';
+      catCell = `
+        <td rowspan="${groupSize}" class="group-tipo-cell"
+            style="background:${bgColor}99;border-left:4px solid ${bgColor};vertical-align:middle;text-align:center">
+          ${w ? `<input type="text" class="inline-input" style="font-weight:600;text-align:center" value="${esc(catVal)}"
+              onblur="inlineSaveCostGroup(${gid},'expense_type',this.value)" />`
+              : `<strong>${esc(catVal||'—')}</strong>`}
+          ${w ? `<div style="margin-top:.3rem">
+            <button class="btn-icon danger" onclick="dissolveCostGroup(${gid})" style="font-size:.7rem">✕ Διάλυση</button>
+          </div>` : ''}
+        </td>`;
+    } else if (isGrouped) {
+      catCell = '';
+    } else {
+      catCell = `<td><input type="text" class="inline-input" value="${esc(c.expense_type||'')}"
+        onblur="inlineSaveCost('${c.id}','expense_type',this.value)" /></td>`;
+    }
+
+    html += `
+      <tr data-id="${c.id}" data-group="${gid??''}" data-sort="${c.sort_order??idx}" class="cost-row" ${rowStyle}>
+        <td class="drag-handle cost-drag">⠿</td>
+        ${w ? `<td><input type="checkbox" class="cost-checkbox" data-id="${c.id}" /></td>` : '<td></td>'}
+        ${cell(c,'booking_ref','text')}
+        ${cell(c,'payment_date','date')}
+        ${cell(c,'comments','text')}
+        ${cell(c,'cost','num')}
+        ${catCell}
+        ${cell(c,'local_currency','text')}
+        ${cell(c,'amount_eur','num')}
+        ${cell(c,'payment_method','select',EXPENSE_METHODS)}
+        ${cell(c,'entry_date','date')}
+        ${cell(c,'is_paid','paid-select')}
+        ${cell(c,'has_invoice','bool')}
+        ${cell(c,'invoice_name','text')}
+        <td>${w?`<button class="btn-icon danger" onclick="deleteCost('${c.id}')">🗑</button>`:''}</td>
+      </tr>`;
+  });
+
+  tbody.innerHTML = html;
   if (w) initCostsDragAndDrop();
+  renderCostsSummary();
 }
 
 async function inlineSaveCost(id, field, value) {
   const numFields = ['cost','amount_eur'];
   const parsed = numFields.includes(field)
     ? (parseInt(value)||0)
-    : (value === '' ? null : value);
+    : (value === '' || value === null ? null : value);
 
   const { error } = await db.from('trip_costs').update({ [field]: parsed }).eq('id', id);
-  if (error) toast('Σφάλμα αποθήκευσης', 'error');
+  if (error) { toast('Σφάλμα αποθήκευσης', 'error'); return; }
 
   const c = state.currentCosts.find(x => x.id === id);
   if (c) c[field] = parsed;
+  renderCostsSummary();
+}
+
+async function inlineSaveCostGroup(groupId, field, value) {
+  const members = state.currentCosts.filter(c => c.group_id === groupId);
+  const ids = members.map(c => c.id);
+  const { error } = await db.from('trip_costs').update({ [field]: value||null }).in('id', ids);
+  if (error) { toast('Σφάλμα αποθήκευσης', 'error'); return; }
+  members.forEach(c => { c[field] = value||null; });
+}
+
+async function dissolveCostGroup(groupId) {
+  if (!confirm('Διάλυση ομάδας;')) return;
+  const ids = state.currentCosts.filter(c => c.group_id === groupId).map(c => c.id);
+  const { error } = await db.from('trip_costs').update({ group_id: null }).in('id', ids);
+  if (error) return toast('Σφάλμα διάλυσης', 'error');
+  state.currentCosts.forEach(c => { if (c.group_id === groupId) c.group_id = null; });
+  toast('Ομάδα διαλύθηκε', 'success');
+  renderCosts();
+}
+
+async function groupCostsSelected() {
+  const ids = [...document.querySelectorAll('.cost-checkbox:checked')].map(cb => cb.dataset.id);
+  if (ids.length < 2) return toast('Επιλέξτε τουλάχιστον 2 έξοδα', 'error');
+  const usedGroups = state.currentCosts.map(c => c.group_id).filter(g => g !== null && g !== undefined);
+  const nextGroup  = usedGroups.length ? Math.max(...usedGroups) + 1 : 1;
+  const { error } = await db.from('trip_costs').update({ group_id: nextGroup }).in('id', ids);
+  if (error) return toast('Σφάλμα ομαδοποίησης', 'error');
+  toast('Ομαδοποίηση ολοκληρώθηκε', 'success');
+  loadCosts();
 }
 
 function initCostsDragAndDrop() {

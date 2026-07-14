@@ -550,27 +550,31 @@
             <input type="text" id="cost-booking-ref" />
           </div>
           <div class="field-group">
-            <label>Τύπος Εξόδου</label>
-            <select id="cost-expense-type">
-              <option value="">— Επιλογή —</option>
-              <option value="ΞΕΝΟΔΟΧΕΙΟ">ΞΕΝΟΔΟΧΕΙΟ</option>
-              <option value="ΑΕΡΟΠΟΡΙΚΑ">ΑΕΡΟΠΟΡΙΚΑ</option>
-            </select>
+            <label>Deadline</label>
+            <input type="date" id="cost-payment-date" />
+          </div>
+          <div class="field-group col-2">
+            <label>Σχόλια</label>
+            <input type="text" id="cost-comments" />
           </div>
           <div class="field-group">
             <label>Κόστος €</label>
             <input type="number" id="cost-cost" min="0" />
           </div>
           <div class="field-group">
+            <label>Κατηγορία Εξόδου</label>
+            <input type="text" id="cost-expense-type" placeholder="π.χ. Ξενοδοχείο 1, Αεροπορικά..." />
+          </div>
+          <div class="field-group">
             <label>Τοπικό Νόμισμα</label>
             <input type="text" id="cost-local-currency" placeholder="π.χ. USD" />
           </div>
           <div class="field-group">
-            <label>Ποσό σε € (τελικό)</label>
+            <label>Ευρώ €</label>
             <input type="number" id="cost-amount-eur" min="0" />
           </div>
           <div class="field-group">
-            <label>Τρόπος Πληρωμής</label>
+            <label>Τράπεζα</label>
             <select id="cost-payment-method">
               <option value="">— Επιλογή —</option>
               <optgroup label="ALPHA"><option>ALPHA (ΕΜΒΑΣΜΑ)</option><option>ALPHA (ΚΑΡΤΑ)</option></optgroup>
@@ -582,14 +586,15 @@
           </div>
           <div class="field-group">
             <label>Ημ/νία Εξόφλησης</label>
-            <input type="date" id="cost-payment-date" />
-          </div>
-          <div class="field-group">
-            <label>Ημ/νία Καταχώρησης</label>
             <input type="date" id="cost-entry-date" />
           </div>
-          <div class="field-group checkbox-group">
-            <label><input type="checkbox" id="cost-is-paid" /> Πληρώθηκε</label>
+          <div class="field-group">
+            <label>Πληρώθηκε</label>
+            <select id="cost-is-paid">
+              <option value="">— Επιλογή —</option>
+              <option value="ΝΑΙ">ΝΑΙ</option>
+              <option value="STAND BY">STAND BY</option>
+            </select>
           </div>
           <div class="field-group checkbox-group">
             <label><input type="checkbox" id="cost-has-invoice" /> Τιμολόγιο</label>
