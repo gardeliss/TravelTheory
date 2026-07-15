@@ -1406,8 +1406,8 @@ function renderLeads() {
   tbody.innerHTML = state.currentLeads.map((lead, idx) => `
     <tr data-id="${lead.id}" data-sort="${lead.sort_order??idx}" class="lead-row">
       <td class="drag-handle lead-drag">⠿</td>
-      ${cell(lead,'first_name','text')}
       ${cell(lead,'last_name','text')}
+	  ${cell(lead,'first_name','text')}
       ${cell(lead,'email','text')}
       ${cell(lead,'telephone','text')}
       ${cell(lead,'date_of_birth','date')}
@@ -1453,13 +1453,48 @@ function openLeadModal() {
 }
 
 async function saveLeadModal() {
+  const firstName = document.getElementById('lead-first-name').value.trim();
+  const lastName  = document.getElementById('lead-last-name').value.trim();
+  const email     = document.getElementById('lead-email').value.trim();
+  const telephone = document.getElementById('lead-telephone').value.trim();
+
+  // Load current participants with customer data to check for duplicates
+  const { data: parts } = await db
+    .from('trip_participants')
+    .select('customers(first_name, last_name, email, telephone)')
+    .eq('trip_id', state.currentTrip.id)
+    .eq('is_waitlist', false);
+
+  if (parts) {
+    for (const p of parts) {
+      const c = p.customers;
+      if (!c) continue;
+
+      // Check if selected from customer list (email match)
+      if (email && c.email && c.email.toLowerCase() === email.toLowerCase()) {
+        return toast(`Ο πελάτης "${c.last_name} ${c.first_name}" βρίσκεται ήδη στο ταξίδι.`, 'error');
+      }
+
+      // Check name + telephone match
+      const nameMatch = lastName && firstName &&
+        c.last_name?.toLowerCase() === lastName.toLowerCase() &&
+        c.first_name?.toLowerCase() === firstName.toLowerCase();
+      const telMatch = telephone && c.telephone &&
+        c.telephone.replace(/\s/g,'') === telephone.replace(/\s/g,'');
+
+      if (nameMatch && telMatch) {
+        return toast(`Ο πελάτης "${lastName} ${firstName}" βρίσκεται ήδη στο ταξίδι.`, 'error');
+      }
+    }
+  }
+
   const payload = {
     trip_id:       state.currentTrip.id,
-    first_name:    document.getElementById('lead-first-name').value.trim() || null,
-    last_name:     document.getElementById('lead-last-name').value.trim()  || null,
-    email:         document.getElementById('lead-email').value.trim()      || null,
-    telephone:     document.getElementById('lead-telephone').value.trim()  || null,
-    date_of_birth: document.getElementById('lead-dob').value               || null,
+    first_name:    firstName || null,
+    last_name:     lastName  || null,
+    email:         email     || null,
+    telephone:     telephone || null,
+    date_of_birth: document.getElementById('lead-dob').value || null,
     num_persons:   1,
     sort_order:    state.currentLeads.length,
   };
