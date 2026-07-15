@@ -1015,8 +1015,9 @@ input[type="date"]::-webkit-calendar-picker-indicator {
 }
 
 #participants-table {
-  min-width: 3080px;
+  width: 100%;
   font-size: .8rem;
+  table-layout: auto;
 }
 
 #participants-table th,
