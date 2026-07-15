@@ -126,7 +126,7 @@ html, body { height: 100%; font-family: system-ui, -apple-system, sans-serif; fo
   min-width: 0;
 }
 
-.view { max-width: 1200px; }
+.view { max-width: 100%; }
 
 /* ── VIEW HEADER ──────────────────────────────────────────── */
 .view-header {
