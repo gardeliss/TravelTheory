@@ -1135,3 +1135,8 @@ input[type="date"]::-webkit-calendar-picker-indicator {
   accent-color: var(--accent);
   cursor: pointer;
 }
+
+#costs-table, #participants-table {
+  width: 100%;
+  table-layout: auto;
+}
