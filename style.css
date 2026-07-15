@@ -777,6 +777,7 @@ input[type="date"]::-webkit-calendar-picker-indicator {
 
 /* ── RECEIPTS ────────────────────────────────────────────────── */
 #receipts-table-wrap { overflow-x: auto; }
+#costs-table-wrap { overflow-x: auto; width: 100%; }
 
 .badge-blue { background: rgba(61,126,255,.12); color: #2563d4; }
 
