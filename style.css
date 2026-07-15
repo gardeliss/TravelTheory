@@ -121,7 +121,9 @@ html, body { height: 100%; font-family: system-ui, -apple-system, sans-serif; fo
   flex: 1;
   height: 100vh;
   overflow-y: auto;
+  overflow-x: hidden;
   padding: 1.8rem 2rem;
+  min-width: 0;
 }
 
 .view { max-width: 1200px; }
