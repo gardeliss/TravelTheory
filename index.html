@@ -192,19 +192,19 @@
             <button class="btn btn-secondary btn-sm" onclick="groupCostsSelected()">🔗 Ομαδοποίηση</button>
           </div>
           <div id="costs-table-wrap" style="overflow-x:auto">
-            <table class="data-table" id="costs-table" style="width:100%;font-size:.8rem">
+            <table class="data-table" id="costs-table" style="min-width:1400px;font-size:.8rem">
               <thead>
                 <tr>
                   <th style="width:28px"></th>
                   <th style="width:28px"></th>
                   <th>Αρ. Κράτησης</th>
                   <th style="width:108px">Deadline</th>
-                  <th style="width:160px">Σχόλια</th>
+                  <th>Σχόλια</th>
                   <th>Κόστος €</th>
                   <th>Κατηγορία</th>
                   <th>Τοπικό Νόμισμα</th>
                   <th>Ευρώ €</th>
-                  <th style="min-width:160px">Τράπεζα</th>
+                  <th>Τράπεζα</th>
                   <th style="width:108px">Ημ/νία Εξόφλ.</th>
                   <th>Πληρώθηκε</th>
                   <th>Τιμολόγιο</th>
@@ -762,6 +762,50 @@
       <div class="modal-footer">
         <button class="btn btn-ghost" data-modal="modal-user">Άκυρο</button>
         <button class="btn btn-primary" id="btn-save-user">Αποθήκευση</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal: New Lead -->
+  <div id="modal-lead" class="modal-overlay hidden" data-no-backdrop-close>
+    <div class="modal">
+      <div class="modal-header">
+        <h3>Νέος Ενδιαφερόμενος</h3>
+        <button class="modal-close" id="btn-cancel-lead">✕</button>
+      </div>
+      <div class="modal-body">
+        <!-- Customer search -->
+        <div class="field-group" style="margin-bottom:1rem;position:relative">
+          <label>Αναζήτηση από Πελατολόγιο <span style="color:var(--text3);font-size:.75rem">(προαιρετικό)</span></label>
+          <input type="text" id="lead-customer-search" placeholder="Πληκτρολογήστε όνομα..." autocomplete="off" />
+          <div id="lead-customer-results" class="search-dropdown hidden"></div>
+        </div>
+        <div class="form-grid">
+          <div class="field-group">
+            <label>Όνομα</label>
+            <input type="text" id="lead-first-name" />
+          </div>
+          <div class="field-group">
+            <label>Επώνυμο</label>
+            <input type="text" id="lead-last-name" />
+          </div>
+          <div class="field-group">
+            <label>Email</label>
+            <input type="email" id="lead-email" />
+          </div>
+          <div class="field-group">
+            <label>Τηλέφωνο</label>
+            <input type="text" id="lead-telephone" />
+          </div>
+          <div class="field-group">
+            <label>Ημ/νία Γέννησης</label>
+            <input type="date" id="lead-dob" />
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-ghost" id="btn-cancel-lead-footer">Άκυρο</button>
+        <button class="btn btn-primary" id="btn-save-lead">Αποθήκευση</button>
       </div>
     </div>
   </div>

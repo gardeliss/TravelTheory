@@ -1440,19 +1440,72 @@ async function inlineSaveLead(id, field, value) {
   if (lead) lead[field] = parsed;
 }
 
-async function addNewLead() {
-  const { data, error } = await db.from('trip_leads').insert({
-    trip_id: state.currentTrip.id,
-    num_persons: 1,
-    sort_order: state.currentLeads.length,
-  }).select().single();
+function openLeadModal() {
+  // Reset form
+  ['lead-first-name','lead-last-name','lead-email','lead-telephone','lead-dob']
+    .forEach(id => { const el = document.getElementById(id); if(el) el.value = ''; });
+  // Reset search
+  const si = document.getElementById('lead-customer-search');
+  if (si) si.value = '';
+  const sr = document.getElementById('lead-customer-results');
+  if (sr) { sr.innerHTML = ''; sr.classList.add('hidden'); }
+  document.getElementById('modal-lead').classList.remove('hidden');
+}
 
-  if (error) return toast('Σφάλμα προσθήκης', 'error');
+async function saveLeadModal() {
+  const payload = {
+    trip_id:       state.currentTrip.id,
+    first_name:    document.getElementById('lead-first-name').value.trim() || null,
+    last_name:     document.getElementById('lead-last-name').value.trim()  || null,
+    email:         document.getElementById('lead-email').value.trim()      || null,
+    telephone:     document.getElementById('lead-telephone').value.trim()  || null,
+    date_of_birth: document.getElementById('lead-dob').value               || null,
+    num_persons:   1,
+    sort_order:    state.currentLeads.length,
+  };
+
+  const { data, error } = await db.from('trip_leads').insert(payload).select().single();
+  if (error) return toast('Σφάλμα αποθήκευσης', 'error');
+
+  document.getElementById('modal-lead').classList.add('hidden');
   state.currentLeads.push(data);
   renderLeads();
-  // Focus first cell of new row
-  const newRow = document.querySelector(`tr[data-id="${data.id}"] input`);
-  if (newRow) newRow.focus();
+  toast('Αποθηκεύτηκε', 'success');
+}
+
+async function searchCustomersForLead(query) {
+  if (query.length < 2) {
+    document.getElementById('lead-customer-results').classList.add('hidden');
+    return;
+  }
+  const { data } = await db.from('customers')
+    .select('id, first_name, last_name, email, telephone, date_of_birth')
+    .or(`first_name.ilike.%${query}%,last_name.ilike.%${query}%`)
+    .limit(8);
+
+  const results = document.getElementById('lead-customer-results');
+  if (!data || !data.length) {
+    results.innerHTML = '<div class="search-dropdown-item" style="color:var(--text3)">Δεν βρέθηκαν</div>';
+    results.classList.remove('hidden');
+    return;
+  }
+  results.innerHTML = data.map(c => `
+    <div class="search-dropdown-item" onclick="fillLeadFromCustomer(${JSON.stringify(c).replace(/"/g,'&quot;')})">
+      <strong>${esc(c.last_name)} ${esc(c.first_name)}</strong>
+      ${c.email ? `<span style="color:var(--text3);margin-left:.5rem;font-size:.78rem">${esc(c.email)}</span>` : ''}
+    </div>
+  `).join('');
+  results.classList.remove('hidden');
+}
+
+function fillLeadFromCustomer(c) {
+  document.getElementById('lead-first-name').value = c.first_name || '';
+  document.getElementById('lead-last-name').value  = c.last_name  || '';
+  document.getElementById('lead-email').value      = c.email      || '';
+  document.getElementById('lead-telephone').value  = c.telephone  || '';
+  document.getElementById('lead-dob').value        = c.date_of_birth || '';
+  document.getElementById('lead-customer-search').value = `${c.last_name} ${c.first_name}`;
+  document.getElementById('lead-customer-results').classList.add('hidden');
 }
 
 async function deleteLead(id) {
@@ -1467,6 +1520,9 @@ async function deleteLead(id) {
 async function promoteLeadToParticipant(leadId) {
   const lead = state.currentLeads.find(l => l.id === leadId);
   if (!lead) return;
+
+  const name = `${lead.first_name || ''} ${lead.last_name || ''}`.trim() || 'Άγνωστος';
+  if (!confirm(`Μεταφορά του "${name}" στη λίστα συμμετεχόντων;`)) return;
 
   // Check if customer exists with same email or create new one
   let customerId = null;
@@ -1782,7 +1838,19 @@ function bindStaticEvents() {
   document.getElementById('btn-save-room')?.addEventListener('click', saveRoom);
   document.getElementById('btn-save-room-assignment')?.addEventListener('click', saveRoomAssignment);
   document.getElementById('btn-save-receipt')?.addEventListener('click', saveReceipt);
-  document.getElementById('btn-add-lead')?.addEventListener('click', addNewLead);
+  document.getElementById('btn-save-lead')?.addEventListener('click', saveLeadModal);
+  document.getElementById('btn-cancel-lead')?.addEventListener('click', () => {
+    document.getElementById('modal-lead').classList.add('hidden');
+  });
+  document.getElementById('btn-cancel-lead-footer')?.addEventListener('click', () => {
+    document.getElementById('modal-lead').classList.add('hidden');
+  });
+  let leadSearchTimeout;
+  document.getElementById('lead-customer-search')?.addEventListener('input', e => {
+    clearTimeout(leadSearchTimeout);
+    leadSearchTimeout = setTimeout(() => searchCustomersForLead(e.target.value), 250);
+  });
+  document.getElementById('btn-add-lead')?.addEventListener('click', openLeadModal);
 
   // User management
   document.getElementById('btn-new-user')?.addEventListener('click', openNewUser);
@@ -1841,7 +1909,7 @@ function formatDateDisplay(dateStr) {
   const dd = String(d.getDate()).padStart(2,'0');
   const mm = String(d.getMonth()+1).padStart(2,'0');
   const yyyy = d.getFullYear();
-  return `${dd}${mm}${yyyy}`;
+  return `${dd}-${mm}-${yyyy}`;
 }
 
 function toast(msg, type = 'success') {
