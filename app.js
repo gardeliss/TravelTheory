@@ -2372,7 +2372,7 @@ function renderCostsInline(rows) {
     'ΜΕΤΡΗΤΑ'
   ];
 
-  function cell(c, field, type, opts) {
+  function cell(c, field, type, opts, extraStyle='') {
     const val = c[field] ?? '';
     if (!w) {
       if (type === 'bool') return `<td><span class="badge ${val ? 'badge-green':'badge-gray'}">${val?'Ναι':'Όχι'}</span></td>`;
@@ -2381,9 +2381,10 @@ function renderCostsInline(rows) {
       return `<td>${esc(val||'—')}</td>`;
     }
     if (type === 'paid-select') {
-      const paidClass = val==='ΝΑΙ' ? 'badge-green' : val==='STAND BY' ? 'badge-yellow' : 'badge-gray';
-      if (!w) return `<td><span class="badge ${paidClass}">${val||'—'}</span></td>`;
-      return `<td><select class="inline-select" onchange="inlineSaveCost('${c.id}','${field}',this.value)">
+      const paidBg    = val==='ΝΑΙ' ? '#dcfce7' : val==='STAND BY' ? '#fef9c3' : '';
+      const paidColor = val==='ΝΑΙ' ? '#15803d' : val==='STAND BY' ? '#854d0e' : '';
+      return `<td><select class="inline-select" onchange="inlineSaveCost('${c.id}','${field}',this.value)"
+        style="background:${paidBg};color:${paidColor};font-weight:${paidBg?'600':'400'}">
         <option value="">—</option>
         <option value="ΝΑΙ" ${val==='ΝΑΙ'?'selected':''}>ΝΑΙ</option>
         <option value="STAND BY" ${val==='STAND BY'?'selected':''}>STAND BY</option>
@@ -2399,14 +2400,14 @@ function renderCostsInline(rows) {
         <option value="">—</option>${options}</select></td>`;
     }
     if (type === 'date') {
-      return `<td><input type="date" class="inline-input" value="${val}"
+      return `<td><input type="date" class="inline-input" style="width:108px" value="${val}"
         onchange="inlineSaveCost('${c.id}','${field}',this.value)" /></td>`;
     }
     if (type === 'num') {
       return `<td><input type="number" class="inline-input inline-num" value="${val||''}" placeholder="0"
         onblur="inlineSaveCost('${c.id}','${field}',this.value)" /></td>`;
     }
-    return `<td><input type="text" class="inline-input" value="${esc(val)}"
+    return `<td><input type="text" class="inline-input" style="${extraStyle}" value="${esc(val)}"
       onblur="inlineSaveCost('${c.id}','${field}',this.value)" /></td>`;
   }
 
@@ -2466,7 +2467,7 @@ function renderCostsInline(rows) {
         ${w ? `<td><input type="checkbox" class="cost-checkbox" data-id="${c.id}" /></td>` : '<td></td>'}
         ${cell(c,'booking_ref','text')}
         ${cell(c,'payment_date','date')}
-        ${cell(c,'comments','text')}
+        ${cell(c,'comments','text','','min-width:150px')}
         ${cell(c,'cost','num')}
         ${catCell}
         ${cell(c,'local_currency','text')}
