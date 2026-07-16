@@ -1771,9 +1771,23 @@ async function promoteWaitlist2ToLead(id) {
   toast(`Ο "${name}" μεταφέρθηκε στους Ενδιαφερόμενους`, 'success');
 }
 
+function fillWl2FromCustomer(c) {
+  document.getElementById('wl2-last-name').value  = c.last_name       || '';
+  document.getElementById('wl2-first-name').value = c.first_name      || '';
+  document.getElementById('wl2-email').value      = c.email           || '';
+  document.getElementById('wl2-telephone').value  = c.telephone       || '';
+  document.getElementById('wl2-dob').value        = c.date_of_birth   || '';
+  document.getElementById('wl2-customer-search').value = `${c.last_name} ${c.first_name}`;
+  document.getElementById('wl2-customer-results').classList.add('hidden');
+}
+
 function openWaitlist2Modal() {
   ['wl2-last-name','wl2-first-name','wl2-email','wl2-telephone','wl2-dob']
     .forEach(id => { const el = document.getElementById(id); if(el) el.value = ''; });
+  const si = document.getElementById('wl2-customer-search');
+  if (si) si.value = '';
+  const sr = document.getElementById('wl2-customer-results');
+  if (sr) { sr.innerHTML = ''; sr.classList.add('hidden'); }
   document.getElementById('modal-waitlist2').classList.remove('hidden');
 }
 
@@ -2051,6 +2065,31 @@ function bindStaticEvents() {
   });
   document.getElementById('btn-cancel-waitlist2-footer')?.addEventListener('click', () => {
     document.getElementById('modal-waitlist2').classList.add('hidden');
+  });
+
+  let wl2SearchTimeout;
+  document.getElementById('wl2-customer-search')?.addEventListener('input', e => {
+    clearTimeout(wl2SearchTimeout);
+    wl2SearchTimeout = setTimeout(async () => {
+      const query = e.target.value;
+      const results = document.getElementById('wl2-customer-results');
+      if (query.length < 2) { results.classList.add('hidden'); return; }
+      const { data } = await db.from('customers')
+        .select('id, first_name, last_name, email, telephone, date_of_birth')
+        .or(`first_name.ilike.%${query}%,last_name.ilike.%${query}%`)
+        .limit(8);
+      if (!data?.length) {
+        results.innerHTML = '<div class="search-dropdown-item" style="color:var(--text3)">Δεν βρέθηκαν</div>';
+        results.classList.remove('hidden');
+        return;
+      }
+      results.innerHTML = data.map(c => `
+        <div class="search-dropdown-item" onclick="fillWl2FromCustomer(${JSON.stringify(c).replace(/"/g,'&quot;')})">
+          <strong>${esc(c.last_name)} ${esc(c.first_name)}</strong>
+          ${c.email ? `<span style="color:var(--text3);margin-left:.5rem;font-size:.78rem">${esc(c.email)}</span>` : ''}
+        </div>`).join('');
+      results.classList.remove('hidden');
+    }, 250);
   });
 
   // User management
