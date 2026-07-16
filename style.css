@@ -947,7 +947,7 @@ input[type="date"]::-webkit-calendar-picker-indicator {
 
 .inline-input:hover  { border-bottom-color: var(--border2); }
 .inline-input:focus  { border-bottom-color: var(--accent); background: rgba(61,126,255,.04); }
-.inline-num          { max-width: 70px; text-align: right; }
+.inline-num          { max-width: 90px; text-align: right; }
 
 .inline-select {
   width: 100%;
