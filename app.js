@@ -384,6 +384,7 @@ async function loadParticipants() {
   if (error) return toast('Σφάλμα φόρτωσης συμμετεχόντων', 'error');
   state.currentParticipants = data || [];
   renderParticipants();
+  updateTabCount('participants', state.currentParticipants.length);
   updateParticipantCount();
 }
 
@@ -1368,6 +1369,7 @@ async function loadLeads() {
   if (error) return toast('Σφάλμα φόρτωσης ενδιαφερομένων', 'error');
   state.currentLeads = data || [];
   renderLeads();
+  updateTabCount('leads', state.currentLeads.length);
 }
 
 function renderLeads() {
@@ -1676,6 +1678,7 @@ async function loadWaitlist2() {
   if (error) return toast('Σφάλμα φόρτωσης λίστας αναμονής', 'error');
   state.currentWaitlist2 = data || [];
   renderWaitlist2();
+  updateTabCount('waitlist2', state.currentWaitlist2.length);
 }
 
 function renderWaitlist2() {
@@ -2937,3 +2940,12 @@ function renderCustomersRows(rows) {
     </tr>
   `).join('');
 }
+
+function updateTabCount(tabName, count) {
+  const tab = document.querySelector(`.tab[data-tab="${tabName}"]`);
+  if (!tab) return;
+  const base = tab.dataset.label || tab.textContent.replace(/\(\d+\)/, '').trim();
+  tab.dataset.label = base;
+  tab.textContent = count > 0 ? `${base} (${count})` : base;
+}
+
