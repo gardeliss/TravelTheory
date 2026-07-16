@@ -1948,6 +1948,20 @@ function bindStaticEvents() {
     btn.addEventListener('click', () => navigateTo(btn.dataset.view));
   });
 
+  // cancel -- esc keyboard
+  document.addEventListener('keydown', e => {
+    if (e.key !== 'Escape') return;
+    // Κλείσε οποιοδήποτε modal είναι ανοιχτό και δεν έχει data-no-backdrop-close
+    document.querySelectorAll('.modal-overlay:not(.hidden)').forEach(modal => {
+      if (!modal.hasAttribute('data-no-backdrop-close')) closeModal(modal.id);
+    });
+    // Κλείσε και τα custom modals (leads, waitlist2 κλπ)
+    ['modal-lead','modal-waitlist2'].forEach(id => {
+      const el = document.getElementById(id);
+      if (el && !el.classList.contains('hidden')) el.classList.add('hidden');
+    });
+  });
+
   // Back button
   $('btn-back-trips').addEventListener('click', () => navigateTo('trips'));
 
