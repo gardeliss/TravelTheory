@@ -18,6 +18,7 @@ const state = {
   currentTrip: null,
   currentParticipants: [],
   currentWaitlist: [],
+  currentWaitlist2: [],
   currentCosts: [],
   currentTasks: [],
   currentRooms: [],
@@ -1406,8 +1407,8 @@ function renderLeads() {
   tbody.innerHTML = state.currentLeads.map((lead, idx) => `
     <tr data-id="${lead.id}" data-sort="${lead.sort_order??idx}" class="lead-row">
       <td class="drag-handle lead-drag">⠿</td>
+      ${cell(lead,'first_name','text')}
       ${cell(lead,'last_name','text')}
-	  ${cell(lead,'first_name','text')}
       ${cell(lead,'email','text')}
       ${cell(lead,'telephone','text')}
       ${cell(lead,'date_of_birth','date')}
@@ -1662,6 +1663,165 @@ async function saveLeadsSortOrder() {
   state.currentLeads.sort((a,b) => idOrder.indexOf(a.id) - idOrder.indexOf(b.id));
 }
 
+
+// ── ΛΙΣΤΑ ΑΝΑΜΟΝΗΣ (trip_waitlist) ───────────────────────────
+async function loadWaitlist2() {
+  const { data, error } = await db
+    .from('trip_waitlist')
+    .select('*')
+    .eq('trip_id', state.currentTrip.id)
+    .order('sort_order', { ascending: true, nullsFirst: true })
+    .order('created_at');
+
+  if (error) return toast('Σφάλμα φόρτωσης λίστας αναμονής', 'error');
+  state.currentWaitlist2 = data || [];
+  renderWaitlist2();
+}
+
+function renderWaitlist2() {
+  const tbody = document.getElementById('waitlist2-tbody');
+  if (!tbody) return;
+  const w = canWrite('participants');
+
+  if (!state.currentWaitlist2.length) {
+    tbody.innerHTML = '<tr><td colspan="11" style="color:var(--text3);text-align:center;padding:1.5rem">Δεν υπάρχουν εγγραφές ακόμα.</td></tr>';
+    return;
+  }
+
+  function cell(r, field, type) {
+    const val = r[field] ?? '';
+    if (!w) {
+      if (type === 'date') return `<td>${val ? formatDate(val) : '—'}</td>`;
+      if (type === 'num')  return `<td>${val || '—'}</td>`;
+      return `<td>${esc(val || '—')}</td>`;
+    }
+    if (type === 'date') return `<td><input type="date" class="inline-input" style="width:108px" value="${val}" onchange="inlineSaveWaitlist2('${r.id}','${field}',this.value)" /></td>`;
+    if (type === 'time') return `<td><input type="time" class="inline-input" value="${val}" onchange="inlineSaveWaitlist2('${r.id}','${field}',this.value)" /></td>`;
+    if (type === 'num')  return `<td><input type="number" class="inline-input inline-num" value="${val||''}" placeholder="1" onblur="inlineSaveWaitlist2('${r.id}','${field}',this.value)" /></td>`;
+    return `<td><input type="text" class="inline-input" value="${esc(val)}" onblur="inlineSaveWaitlist2('${r.id}','${field}',this.value)" /></td>`;
+  }
+
+  tbody.innerHTML = state.currentWaitlist2.map((r, idx) => `
+    <tr data-id="${r.id}" data-sort="${r.sort_order??idx}" class="waitlist2-row">
+      <td class="drag-handle waitlist2-drag">⠿</td>
+      ${cell(r,'last_name','text')}
+      ${cell(r,'first_name','text')}
+      ${cell(r,'email','text')}
+      ${cell(r,'telephone','text')}
+      ${cell(r,'date_of_birth','date')}
+      ${cell(r,'num_persons','num')}
+      ${cell(r,'deadline','date')}
+      ${cell(r,'deadline_time','time')}
+      ${cell(r,'comments','text')}
+      <td style="white-space:nowrap">
+        ${w ? `
+          <button class="btn btn-sm btn-primary" onclick="promoteWaitlist2ToLead('${r.id}')" title="Μεταφορά στους Ενδιαφερόμενους">→</button>
+          <button class="btn-icon danger" onclick="deleteWaitlist2('${r.id}')">🗑</button>
+        ` : ''}
+      </td>
+    </tr>
+  `).join('');
+
+  if (w) initWaitlist2DragAndDrop();
+}
+
+async function inlineSaveWaitlist2(id, field, value) {
+  const numFields = ['num_persons'];
+  const parsed = numFields.includes(field) ? (parseInt(value)||1) : (value === '' ? null : value);
+  const { error } = await db.from('trip_waitlist').update({ [field]: parsed }).eq('id', id);
+  if (error) toast('Σφάλμα αποθήκευσης', 'error');
+  const r = state.currentWaitlist2.find(x => x.id === id);
+  if (r) r[field] = parsed;
+}
+
+async function deleteWaitlist2(id) {
+  if (!confirm('Διαγραφή από τη λίστα αναμονής;')) return;
+  const { error } = await db.from('trip_waitlist').delete().eq('id', id);
+  if (error) return toast('Σφάλμα διαγραφής', 'error');
+  state.currentWaitlist2 = state.currentWaitlist2.filter(r => r.id !== id);
+  renderWaitlist2();
+  toast('Διαγράφηκε', 'success');
+}
+
+async function promoteWaitlist2ToLead(id) {
+  const r = state.currentWaitlist2.find(x => x.id === id);
+  if (!r) return;
+  const name = `${r.last_name || ''} ${r.first_name || ''}`.trim() || 'Άγνωστος';
+  if (!confirm(`Μεταφορά του "${name}" στους Ενδιαφερόμενους;`)) return;
+
+  const { error: insErr } = await db.from('trip_leads').insert({
+    trip_id:       r.trip_id,
+    first_name:    r.first_name,
+    last_name:     r.last_name,
+    email:         r.email,
+    telephone:     r.telephone,
+    date_of_birth: r.date_of_birth,
+    num_persons:   r.num_persons,
+    deadline:      r.deadline,
+    deadline_time: r.deadline_time,
+    comments:      r.comments,
+    sort_order:    state.currentLeads.length,
+  });
+
+  if (insErr) return toast('Σφάλμα μεταφοράς', 'error');
+
+  await db.from('trip_waitlist').delete().eq('id', id);
+  state.currentWaitlist2 = state.currentWaitlist2.filter(x => x.id !== id);
+  renderWaitlist2();
+  toast(`Ο "${name}" μεταφέρθηκε στους Ενδιαφερόμενους`, 'success');
+}
+
+function openWaitlist2Modal() {
+  ['wl2-last-name','wl2-first-name','wl2-email','wl2-telephone','wl2-dob']
+    .forEach(id => { const el = document.getElementById(id); if(el) el.value = ''; });
+  document.getElementById('modal-waitlist2').classList.remove('hidden');
+}
+
+async function saveWaitlist2Modal() {
+  const payload = {
+    trip_id:       state.currentTrip.id,
+    last_name:     document.getElementById('wl2-last-name').value.trim()  || null,
+    first_name:    document.getElementById('wl2-first-name').value.trim() || null,
+    email:         document.getElementById('wl2-email').value.trim()      || null,
+    telephone:     document.getElementById('wl2-telephone').value.trim()  || null,
+    date_of_birth: document.getElementById('wl2-dob').value               || null,
+    num_persons:   1,
+    sort_order:    state.currentWaitlist2.length,
+  };
+
+  const { data, error } = await db.from('trip_waitlist').insert(payload).select().single();
+  if (error) return toast('Σφάλμα αποθήκευσης', 'error');
+
+  document.getElementById('modal-waitlist2').classList.add('hidden');
+  state.currentWaitlist2.push(data);
+  renderWaitlist2();
+  toast('Αποθηκεύτηκε', 'success');
+}
+
+function initWaitlist2DragAndDrop() {
+  const tbody = document.getElementById('waitlist2-tbody');
+  if (!tbody) return;
+  let dragSrc = null;
+
+  tbody.querySelectorAll('.waitlist2-row').forEach(row => {
+    const handle = row.querySelector('.waitlist2-drag');
+    if (!handle) return;
+    handle.addEventListener('mousedown', () => { row.draggable = true; });
+    handle.addEventListener('mouseup',   () => { row.draggable = false; });
+    row.addEventListener('dragstart', e => { dragSrc = row; e.dataTransfer.effectAllowed = 'move'; row.classList.add('dragging'); });
+    row.addEventListener('dragend',   () => { row.draggable = false; row.classList.remove('dragging'); tbody.querySelectorAll('.waitlist2-row').forEach(r => r.classList.remove('drag-over')); saveWaitlist2SortOrder(); });
+    row.addEventListener('dragover',  e => { e.preventDefault(); if (row === dragSrc) return; tbody.querySelectorAll('.waitlist2-row').forEach(r => r.classList.remove('drag-over')); row.classList.add('drag-over'); });
+    row.addEventListener('drop',      e => { e.preventDefault(); if (!dragSrc || dragSrc === row) return; tbody.insertBefore(dragSrc, row); row.classList.remove('drag-over'); });
+  });
+}
+
+async function saveWaitlist2SortOrder() {
+  const rows = [...document.querySelectorAll('#waitlist2-tbody .waitlist2-row')];
+  await Promise.all(rows.map((row, idx) =>
+    db.from('trip_waitlist').update({ sort_order: idx }).eq('id', row.dataset.id)
+  ));
+}
+
 // ── TABS ─────────────────────────────────────────────────────
 function applyTabPermissions(tabName) {
   const w = canWrite(tabName);
@@ -1700,11 +1860,9 @@ function switchTab(tabName) {
   if (tabName === 'financials')   loadFinancials();
   if (tabName === 'pricing')      loadPricing();
   if (tabName === 'tasks')        loadTasks();
-  if (tabName === 'waitlist') {
-    loadWaitlist();
-    initSortableTable('waitlist-table', () => state.currentWaitlist, renderWaitlistRows);
-  }
-  if (tabName === 'leads')    loadLeads();
+
+  if (tabName === 'leads')     loadLeads();
+  if (tabName === 'waitlist2') loadWaitlist2();
   if (tabName === 'receipts') loadReceipts();
 }
 
@@ -1886,6 +2044,14 @@ function bindStaticEvents() {
     leadSearchTimeout = setTimeout(() => searchCustomersForLead(e.target.value), 250);
   });
   document.getElementById('btn-add-lead')?.addEventListener('click', openLeadModal);
+  document.getElementById('btn-add-waitlist2')?.addEventListener('click', openWaitlist2Modal);
+  document.getElementById('btn-save-waitlist2')?.addEventListener('click', saveWaitlist2Modal);
+  document.getElementById('btn-cancel-waitlist2')?.addEventListener('click', () => {
+    document.getElementById('modal-waitlist2').classList.add('hidden');
+  });
+  document.getElementById('btn-cancel-waitlist2-footer')?.addEventListener('click', () => {
+    document.getElementById('modal-waitlist2').classList.add('hidden');
+  });
 
   // User management
   document.getElementById('btn-new-user')?.addEventListener('click', openNewUser);
