@@ -419,6 +419,7 @@ function renderParticipants() {
 }
 
 function renderWaitlist() {
+  updateTabCount('participants', state.currentParticipants.length);
   applySortFilter('waitlist-table', () => state.currentWaitlist, renderWaitlistRows);
 }
 
@@ -1428,6 +1429,8 @@ function renderLeads() {
   `).join('');
 
   if (w) initLeadsDragAndDrop();
+  
+  updateTabCount('leads', state.currentLeads.length);
 }
 
 async function inlineSaveLead(id, field, value) {
@@ -1726,6 +1729,7 @@ function renderWaitlist2() {
   `).join('');
 
   if (w) initWaitlist2DragAndDrop();
+  updateTabCount('waitlist2', state.currentWaitlist2.length);
 }
 
 async function inlineSaveWaitlist2(id, field, value) {
@@ -2946,6 +2950,6 @@ function updateTabCount(tabName, count) {
   if (!tab) return;
   const base = tab.dataset.label || tab.textContent.replace(/\(\d+\)/, '').trim();
   tab.dataset.label = base;
-  tab.textContent = count > 0 ? `${base} (${count})` : base;
+  tab.textContent = `${base} (${count})`;
 }
 
