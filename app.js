@@ -2624,7 +2624,14 @@ function initDragAndDrop() {
     row.addEventListener('drop', e => {
       e.preventDefault();
       if (!dragSrc || dragSrc === row) return;
-      // Insert dragSrc before this row
+      // Αν η target row είναι μέσα σε ομάδα, μην επιτρέπεις drop εκεί
+      const targetGroup = row.dataset.group;
+      const srcGroup    = dragSrc.dataset.group;
+      if (targetGroup && targetGroup !== '' && targetGroup !== srcGroup) {
+        row.classList.remove('drag-over');
+        toast('Δεν μπορείς να βάλεις εγγραφή μέσα σε ομάδα', 'error');
+        return;
+      }
       tbody.insertBefore(dragSrc, row);
       row.classList.remove('drag-over');
     });
@@ -2880,9 +2887,18 @@ function initCostsDragAndDrop() {
       tbody.querySelectorAll('.cost-row').forEach(r => r.classList.remove('drag-over'));
       row.classList.add('drag-over');
     });
+
     row.addEventListener('drop', e => {
       e.preventDefault();
       if (!dragSrc || dragSrc === row) return;
+      // Αν η target row είναι μέσα σε ομάδα, μην επιτρέπεις drop εκεί
+      const targetGroup = row.dataset.group;
+      const srcGroup    = dragSrc.dataset.group;
+      if (targetGroup && targetGroup !== '' && targetGroup !== srcGroup) {
+        row.classList.remove('drag-over');
+        toast('Δεν μπορείς να βάλεις εγγραφή μέσα σε ομάδα', 'error');
+        return;
+      }
       tbody.insertBefore(dragSrc, row);
       row.classList.remove('drag-over');
     });
