@@ -243,6 +243,7 @@ async function openTrip(id) {
 
   navigateTo('trip-detail');
   switchTab('participants');
+  loadAllTabCounts();
 }
 
 // ── SAVE TRIP (New / Edit) ────────────────────────────────────
@@ -384,8 +385,8 @@ async function loadParticipants() {
   if (error) return toast('Σφάλμα φόρτωσης συμμετεχόντων', 'error');
   state.currentParticipants = data || [];
   renderParticipants();
-  updateTabCount('participants', state.currentParticipants.length);
   updateParticipantCount();
+  updateTabCount('participants', state.currentParticipants.length);
 }
 
 async function loadWaitlist() {
@@ -419,7 +420,6 @@ function renderParticipants() {
 }
 
 function renderWaitlist() {
-  updateTabCount('participants', state.currentParticipants.length);
   applySortFilter('waitlist-table', () => state.currentWaitlist, renderWaitlistRows);
 }
 
@@ -1410,8 +1410,8 @@ function renderLeads() {
   tbody.innerHTML = state.currentLeads.map((lead, idx) => `
     <tr data-id="${lead.id}" data-sort="${lead.sort_order??idx}" class="lead-row">
       <td class="drag-handle lead-drag">⠿</td>
-      ${cell(lead,'first_name','text')}
       ${cell(lead,'last_name','text')}
+      ${cell(lead,'first_name','text')}
       ${cell(lead,'email','text')}
       ${cell(lead,'telephone','text')}
       ${cell(lead,'date_of_birth','date')}
@@ -1429,8 +1429,6 @@ function renderLeads() {
   `).join('');
 
   if (w) initLeadsDragAndDrop();
-  
-  updateTabCount('leads', state.currentLeads.length);
 }
 
 async function inlineSaveLead(id, field, value) {
@@ -1729,7 +1727,6 @@ function renderWaitlist2() {
   `).join('');
 
   if (w) initWaitlist2DragAndDrop();
-  updateTabCount('waitlist2', state.currentWaitlist2.length);
 }
 
 async function inlineSaveWaitlist2(id, field, value) {
@@ -1775,12 +1772,11 @@ async function promoteWaitlist2ToLead(id) {
   await db.from('trip_waitlist').delete().eq('id', id);
   state.currentWaitlist2 = state.currentWaitlist2.filter(x => x.id !== id);
   renderWaitlist2();
+  updateTabCount('waitlist2', state.currentWaitlist2.length);
+  // Refresh leads count
+  const { data: leadsData } = await db.from('trip_leads').select('*').eq('trip_id', state.currentTrip.id).order('sort_order');
+  if (leadsData) { state.currentLeads = leadsData; updateTabCount('leads', leadsData.length); }
   toast(`Ο "${name}" μεταφέρθηκε στους Ενδιαφερόμενους`, 'success');
-  // Ανανέωσε leads count αν είναι loaded
-  if (state.currentLeads !== undefined) {
-    const { data } = await db.from('trip_leads').select('*').eq('trip_id', state.currentTrip.id).order('sort_order');
-    if (data) { state.currentLeads = data; updateTabCount('leads', data.length); }
-  }
 }
 
 function fillWl2FromCustomer(c) {
@@ -1846,6 +1842,28 @@ async function saveWaitlist2SortOrder() {
   await Promise.all(rows.map((row, idx) =>
     db.from('trip_waitlist').update({ sort_order: idx }).eq('id', row.dataset.id)
   ));
+}
+
+// ── TAB COUNTS ───────────────────────────────────────────────
+function updateTabCount(tabName, count) {
+  const tab = document.querySelector(`.tab[data-tab="${tabName}"]`);
+  if (!tab) return;
+  const base = tab.dataset.label || tab.textContent.replace(/\s*\(\d+\)/, '').trim();
+  tab.dataset.label = base;
+  tab.textContent = `${base} (${count})`;
+}
+
+async function loadAllTabCounts() {
+  if (!state.currentTrip) return;
+  const tripId = state.currentTrip.id;
+  const [p, l, w] = await Promise.all([
+    db.from('trip_participants').select('*', { count:'exact', head:true }).eq('trip_id', tripId).eq('is_waitlist', false),
+    db.from('trip_leads').select('*', { count:'exact', head:true }).eq('trip_id', tripId),
+    db.from('trip_waitlist').select('*', { count:'exact', head:true }).eq('trip_id', tripId),
+  ]);
+  updateTabCount('participants', p.count || 0);
+  updateTabCount('leads',        l.count || 0);
+  updateTabCount('waitlist2',    w.count || 0);
 }
 
 // ── TABS ─────────────────────────────────────────────────────
@@ -1960,20 +1978,6 @@ function bindStaticEvents() {
     btn.addEventListener('click', () => navigateTo(btn.dataset.view));
   });
 
-  // cancel -- esc keyboard
- document.addEventListener('keydown', e => {
-    if (e.key !== 'Escape') return;
-    // Κλείσε όλα τα ανοιχτά modals ανεξάρτητα από data-no-backdrop-close
-    document.querySelectorAll('.modal-overlay:not(.hidden)').forEach(modal => {
-      closeModal(modal.id);
-    });
-    // Κλείσε και τα custom modals
-    ['modal-lead','modal-waitlist2'].forEach(id => {
-      const el = document.getElementById(id);
-      if (el && !el.classList.contains('hidden')) el.classList.add('hidden');
-    });
-  });
-
   // Back button
   $('btn-back-trips').addEventListener('click', () => navigateTo('trips'));
 
@@ -2071,6 +2075,18 @@ function bindStaticEvents() {
   document.getElementById('btn-save-room')?.addEventListener('click', saveRoom);
   document.getElementById('btn-save-room-assignment')?.addEventListener('click', saveRoomAssignment);
   document.getElementById('btn-save-receipt')?.addEventListener('click', saveReceipt);
+
+  // ESC key closes all modals
+  document.addEventListener('keydown', e => {
+    if (e.key !== 'Escape') return;
+    document.querySelectorAll('.modal-overlay:not(.hidden)').forEach(modal => {
+      closeModal(modal.id);
+    });
+    ['modal-lead','modal-waitlist2'].forEach(id => {
+      const el = document.getElementById(id);
+      if (el && !el.classList.contains('hidden')) el.classList.add('hidden');
+    });
+  });
   document.getElementById('btn-save-lead')?.addEventListener('click', saveLeadModal);
   document.getElementById('btn-cancel-lead')?.addEventListener('click', () => {
     document.getElementById('modal-lead').classList.add('hidden');
@@ -2636,7 +2652,6 @@ function initDragAndDrop() {
     row.addEventListener('drop', e => {
       e.preventDefault();
       if (!dragSrc || dragSrc === row) return;
-      // Αν η target row είναι μέσα σε ομάδα, μην επιτρέπεις drop εκεί
       const targetGroup = row.dataset.group;
       const srcGroup    = dragSrc.dataset.group;
       if (targetGroup && targetGroup !== '' && targetGroup !== srcGroup) {
@@ -2899,11 +2914,9 @@ function initCostsDragAndDrop() {
       tbody.querySelectorAll('.cost-row').forEach(r => r.classList.remove('drag-over'));
       row.classList.add('drag-over');
     });
-
     row.addEventListener('drop', e => {
       e.preventDefault();
       if (!dragSrc || dragSrc === row) return;
-      // Αν η target row είναι μέσα σε ομάδα, μην επιτρέπεις drop εκεί
       const targetGroup = row.dataset.group;
       const srcGroup    = dragSrc.dataset.group;
       if (targetGroup && targetGroup !== '' && targetGroup !== srcGroup) {
@@ -2949,12 +2962,3 @@ function renderCustomersRows(rows) {
     </tr>
   `).join('');
 }
-
-function updateTabCount(tabName, count) {
-  const tab = document.querySelector(`.tab[data-tab="${tabName}"]`);
-  if (!tab) return;
-  const base = tab.dataset.label || tab.textContent.replace(/\(\d+\)/, '').trim();
-  tab.dataset.label = base;
-  tab.textContent = `${base} (${count})`;
-}
-
