@@ -1776,6 +1776,11 @@ async function promoteWaitlist2ToLead(id) {
   state.currentWaitlist2 = state.currentWaitlist2.filter(x => x.id !== id);
   renderWaitlist2();
   toast(`Ο "${name}" μεταφέρθηκε στους Ενδιαφερόμενους`, 'success');
+  // Ανανέωσε leads count αν είναι loaded
+  if (state.currentLeads !== undefined) {
+    const { data } = await db.from('trip_leads').select('*').eq('trip_id', state.currentTrip.id).order('sort_order');
+    if (data) { state.currentLeads = data; updateTabCount('leads', data.length); }
+  }
 }
 
 function fillWl2FromCustomer(c) {
