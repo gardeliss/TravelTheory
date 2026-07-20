@@ -121,12 +121,10 @@ html, body { height: 100%; font-family: system-ui, -apple-system, sans-serif; fo
   flex: 1;
   height: 100vh;
   overflow-y: auto;
-  overflow-x: hidden;
   padding: 1.8rem 2rem;
-  min-width: 0;
 }
 
-.view { max-width: 100%; }
+.view { max-width: 1200px; }
 
 /* ── VIEW HEADER ──────────────────────────────────────────── */
 .view-header {
@@ -779,7 +777,6 @@ input[type="date"]::-webkit-calendar-picker-indicator {
 
 /* ── RECEIPTS ────────────────────────────────────────────────── */
 #receipts-table-wrap { overflow-x: auto; }
-#costs-table-wrap { overflow-x: auto; width: 100%; }
 
 .badge-blue { background: rgba(61,126,255,.12); color: #2563d4; }
 
@@ -947,7 +944,7 @@ input[type="date"]::-webkit-calendar-picker-indicator {
 
 .inline-input:hover  { border-bottom-color: var(--border2); }
 .inline-input:focus  { border-bottom-color: var(--accent); background: rgba(61,126,255,.04); }
-.inline-num          { max-width: 90px; text-align: right; }
+.inline-num          { max-width: 70px; text-align: right; }
 
 .inline-select {
   width: 100%;
@@ -1017,9 +1014,8 @@ input[type="date"]::-webkit-calendar-picker-indicator {
 }
 
 #participants-table {
-  width: 100%;
+  min-width: 3080px;
   font-size: .8rem;
-  table-layout: auto;
 }
 
 #participants-table th,
@@ -1139,7 +1135,27 @@ input[type="date"]::-webkit-calendar-picker-indicator {
   cursor: pointer;
 }
 
-#costs-table, #participants-table {
-  width: 100%;
-  table-layout: auto;
+/* ── TRIP CARD DELETE ────────────────────────────────────────── */
+.trip-card-header-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: .5rem;
+}
+
+.trip-card-delete {
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  font-size: .85rem;
+  color: var(--text3);
+  padding: .1rem .2rem;
+  border-radius: 4px;
+  flex-shrink: 0;
+  transition: color .15s, background .15s;
+}
+
+.trip-card-delete:hover {
+  color: var(--danger);
+  background: rgba(220,38,38,.08);
 }

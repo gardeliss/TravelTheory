@@ -215,7 +215,10 @@ function renderTrips() {
   }
   container.innerHTML = state.trips.map(t => `
     <div class="trip-card" data-id="${t.id}" onclick="openTrip('${t.id}')">
-      <div class="trip-card-title">${esc(t.title)}</div>
+      <div class="trip-card-header-row">
+        <div class="trip-card-title">${esc(t.title)}</div>
+        <button class="trip-card-delete" onclick="deleteTrip('${t.id}', event)" title="Διαγραφή ταξιδιού">🗑</button>
+      </div>
       <div class="trip-card-meta">
         <span>📅 ${formatDate(t.date_from)} – ${formatDate(t.date_to)}</span>
         <span>⏱ ${t.duration_days ?? '—'} ημέρες</span>
@@ -288,6 +291,36 @@ async function saveTrip() {
   }
 
   closeModal('modal-trip');
+  loadTrips();
+}
+
+// ── DELETE TRIP ──────────────────────────────────────────────
+async function deleteTrip(id, e) {
+  e.stopPropagation(); // prevent opening the trip
+
+  // Check if trip has any data in any tab
+  const [parts, costs, leads, waitlist, tasks] = await Promise.all([
+    db.from('trip_participants').select('id', { count:'exact', head:true }).eq('trip_id', id),
+    db.from('trip_costs').select('id', { count:'exact', head:true }).eq('trip_id', id),
+    db.from('trip_leads').select('id', { count:'exact', head:true }).eq('trip_id', id),
+    db.from('trip_waitlist').select('id', { count:'exact', head:true }).eq('trip_id', id),
+    db.from('trip_tasks').select('id').eq('trip_id', id).eq('is_done', true),
+  ]);
+
+  const totalData = (parts.count||0) + (costs.count||0) + (leads.count||0) + (waitlist.count||0) + (tasks.data?.length||0);
+
+  if (totalData > 0) {
+    alert('Το ταξίδι περιέχει δεδομένα και δεν μπορεί να διαγραφεί.
+
+Διαγράψτε πρώτα όλες τις εγγραφές από τα tabs (Συμμετέχοντες, Έξοδα, Ενδιαφερόμενοι, Λίστα Αναμονής) για να μπορέσετε να διαγράψετε το ταξίδι.');
+    return;
+  }
+
+  if (!confirm('Διαγραφή ταξιδιού; Η ενέργεια δεν αναιρείται.')) return;
+
+  const { error } = await db.from('trips').delete().eq('id', id);
+  if (error) return toast('Σφάλμα διαγραφής', 'error');
+  toast('Το ταξίδι διαγράφηκε', 'success');
   loadTrips();
 }
 
