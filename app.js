@@ -896,6 +896,7 @@ async function updateTask(id, field, value) {
     const row = document.getElementById(`task-row-${id}`);
     if (row) row.classList.toggle('done', value);
   }
+
 }
 
 

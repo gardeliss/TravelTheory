@@ -320,8 +320,11 @@ html, body { height: 100%; font-family: system-ui, -apple-system, sans-serif; fo
 .task-item:first-child { border-radius: var(--radius) var(--radius) 0 0; }
 .task-item:last-child  { border-bottom: 1px solid var(--border); border-radius: 0 0 var(--radius) var(--radius); }
 
-.task-item.done { opacity: .55; }
-.task-item.done .task-label { text-decoration: line-through; color: var(--text3); }
+.task-item.done {
+  background: #f0fdf4;
+  border-color: #86efac;
+}
+.task-item.done .task-label { color: #15803d; font-weight: 500; }
 
 .task-checkbox { width: 18px; height: 18px; accent-color: var(--accent); cursor: pointer; }
 .task-label { font-size: .9rem; color: var(--text); }
@@ -1161,3 +1164,34 @@ input[type="date"]::-webkit-calendar-picker-indicator {
   color: var(--danger);
   background: rgba(220,38,38,.08);
 }
+
+/* ── FROZEN COLUMNS — Participants ───────────────────────────── */
+#participants-table-wrap {
+  position: relative;
+}
+
+#participants-table th:nth-child(3),
+#participants-table td:nth-child(3) {
+  position: sticky;
+  left: 56px;
+  background: #ffffff;
+  z-index: 2;
+  box-shadow: 1px 0 0 var(--border);
+}
+
+#participants-table th:nth-child(4),
+#participants-table td:nth-child(4) {
+  position: sticky;
+  left: 160px;
+  background: #ffffff;
+  z-index: 2;
+  box-shadow: 2px 0 4px rgba(0,0,0,0.08);
+}
+
+/* Keep group color rows visible over sticky */
+#participants-table tr[style*="background"] td:nth-child(3),
+#participants-table tr[style*="background"] td:nth-child(4) {
+  background: inherit;
+}
+
+/* ── TASKS — done styling ────────────────────────────────────── */
