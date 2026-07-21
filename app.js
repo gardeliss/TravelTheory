@@ -2522,12 +2522,14 @@ function applyStickyBackground() {
   const tbody = document.getElementById('participants-tbody');
   if (!tbody) return;
   tbody.querySelectorAll('tr').forEach(row => {
-    // Get the row's background color (from inline style or default white)
-    const rowBg = row.style.backgroundColor || '#ffffff';
-    // Apply to sticky cells (3rd and 4th child)
-    const cells = row.querySelectorAll('td:nth-child(3), td:nth-child(4)');
-    cells.forEach(cell => {
-      cell.style.backgroundColor = rowBg;
+    // Read computed background color of the row
+    const computed = window.getComputedStyle(row).backgroundColor;
+    // If transparent, use white
+    const bg = (computed === 'rgba(0, 0, 0, 0)' || computed === 'transparent')
+      ? '#ffffff'
+      : computed;
+    row.querySelectorAll('td:nth-child(3), td:nth-child(4)').forEach(cell => {
+      cell.style.backgroundColor = bg;
     });
   });
 }
