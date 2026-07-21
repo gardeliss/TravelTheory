@@ -2515,6 +2515,21 @@ function renderParticipantsGrouped(rows) {
 
   tbody.innerHTML = html;
   if (w) initDragAndDrop();
+  applyStickyBackground();
+}
+
+function applyStickyBackground() {
+  const tbody = document.getElementById('participants-tbody');
+  if (!tbody) return;
+  tbody.querySelectorAll('tr').forEach(row => {
+    // Get the row's background color (from inline style or default white)
+    const rowBg = row.style.backgroundColor || '#ffffff';
+    // Apply to sticky cells (3rd and 4th child)
+    const cells = row.querySelectorAll('td:nth-child(3), td:nth-child(4)');
+    cells.forEach(cell => {
+      cell.style.backgroundColor = rowBg;
+    });
+  });
 }
 
 // ── INLINE SAVE ───────────────────────────────────────────────

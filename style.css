@@ -1176,7 +1176,6 @@ input[type="date"]::-webkit-calendar-picker-indicator {
   left: 56px;
   z-index: 2;
   box-shadow: 1px 0 0 var(--border);
-  background: inherit;
 }
 
 #participants-table th:nth-child(4),
@@ -1185,18 +1184,11 @@ input[type="date"]::-webkit-calendar-picker-indicator {
   left: 160px;
   z-index: 2;
   box-shadow: 2px 0 6px rgba(0,0,0,0.12);
+}
+/* Keep group color rows visible over sticky */
+#participants-table tr[style*="background"] td:nth-child(3),
+#participants-table tr[style*="background"] td:nth-child(4) {
   background: inherit;
-}
-
-#participants-table tbody tr td:nth-child(3),
-#participants-table tbody tr td:nth-child(4) {
-  background-color: var(--bg2);
-}
-
-#participants-table tbody tr[style*="background"] td:nth-child(3),
-#participants-table tbody tr[style*="background"] td:nth-child(4) {
-  background-color: unset;
-  backdrop-filter: none;
 }
 
 /* ── TASKS — done styling ────────────────────────────────────── */
