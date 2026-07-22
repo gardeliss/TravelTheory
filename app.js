@@ -1898,6 +1898,79 @@ async function loadAllTabCounts() {
   updateTabCount('waitlist2',    w.count || 0);
 }
 
+
+// ── PRINT PARTICIPANTS ────────────────────────────────────────
+function printParticipants() {
+  const trip  = state.currentTrip;
+  const parts = state.currentParticipants;
+
+  if (!parts.length) return toast('Δεν υπάρχουν συμμετέχοντες για εκτύπωση', 'error');
+
+  const rows = parts.map((p, i) => {
+    const c = p.customers || {};
+    return `
+      <tr>
+        <td>${i + 1}</td>
+        <td>${esc(c.last_name  || '—')}</td>
+        <td>${esc(c.first_name || '—')}</td>
+        <td>${esc(c.telephone  || '—')}</td>
+        <td>${c.date_of_birth ? formatDateDisplay(c.date_of_birth) : '—'}</td>
+        <td>${esc(c.nationality || '—')}</td>
+        <td>${esc(c.passport_number || '—')}</td>
+        <td>${c.issue_date  ? formatDateDisplay(c.issue_date)  : '—'}</td>
+        <td>${c.expiry_date ? formatDateDisplay(c.expiry_date) : '—'}</td>
+      </tr>`;
+  }).join('');
+
+  const html = `<!DOCTYPE html>
+<html lang="el">
+<head>
+  <meta charset="UTF-8"/>
+  <title>Συμμετέχοντες — ${esc(trip.title)}</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: Arial, sans-serif; font-size: 11px; padding: 20px; color: #111; }
+    h2  { font-size: 15px; margin-bottom: 4px; }
+    p   { font-size: 11px; color: #555; margin-bottom: 14px; }
+    table { width: 100%; border-collapse: collapse; }
+    th  { background: #1e2a3a; color: #fff; padding: 6px 8px; text-align: left; font-size: 10px; text-transform: uppercase; letter-spacing: .04em; }
+    td  { padding: 5px 8px; border-bottom: 1px solid #e5e7eb; }
+    tr:nth-child(even) td { background: #f9fafb; }
+    @media print {
+      body { padding: 10px; }
+      @page { margin: 1.5cm; }
+    }
+  </style>
+</head>
+<body>
+  <h2>Συμμετέχοντες — ${esc(trip.title)}</h2>
+  <p>${formatDateDisplay(trip.date_from)} – ${formatDateDisplay(trip.date_to)} &nbsp;|&nbsp; ${parts.length} άτομα</p>
+  <table>
+    <thead>
+      <tr>
+        <th>#</th>
+        <th>Επώνυμο</th>
+        <th>Όνομα</th>
+        <th>Τηλέφωνο</th>
+        <th>Ημ/νία Γέν.</th>
+        <th>Εθνικότητα</th>
+        <th>Διαβατήριο</th>
+        <th>Ημ/νία Έκδ.</th>
+        <th>Ημ/νία Λήξης</th>
+      </tr>
+    </thead>
+    <tbody>${rows}</tbody>
+  </table>
+</body>
+</html>`;
+
+  const win = window.open('', '_blank');
+  win.document.write(html);
+  win.document.close();
+  win.focus();
+  setTimeout(() => win.print(), 400);
+}
+
 // ── TABS ─────────────────────────────────────────────────────
 function applyTabPermissions(tabName) {
   const w = canWrite(tabName);
