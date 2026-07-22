@@ -2483,8 +2483,8 @@ function renderParticipantsGrouped(rows) {
       <tr data-id="${p.id}" data-group="${gid ?? ''}" data-sort="${p.sort_order ?? idx}" ${style} class="participant-row">
         ${dragHandle}
         ${checkbox}
-        <td>${p.customers ? esc(p.customers.last_name) : '—'}</td>
-        <td>${p.customers ? esc(p.customers.first_name) : '—'}</td>
+        <td style="background-color:${bgColor ? mixColor(bgColor) : '#ffffff'}">${p.customers ? esc(p.customers.last_name) : '—'}</td>
+        <td style="background-color:${bgColor ? mixColor(bgColor) : '#ffffff'}">${p.customers ? esc(p.customers.first_name) : '—'}</td>
         <td>${p.customers?.date_of_birth ? formatDateDisplay(p.customers.date_of_birth) : '—'}</td>
         <td>${esc(p.customers?.passport_number || '—')}</td>
         <td>${esc(p.customers?.nationality || '—')}</td>
@@ -2518,20 +2518,19 @@ function renderParticipantsGrouped(rows) {
   applyStickyBackground();
 }
 
+// Mix group color with white to get solid equivalent of color+opacity
+function mixColor(hex) {
+  // hex is like #93c5fd, we mix it 33% with white (#ffffff)
+  const r = parseInt(hex.slice(1,3),16);
+  const g = parseInt(hex.slice(3,5),16);
+  const b = parseInt(hex.slice(5,7),16);
+  // 55 in hex = 0.33 opacity — mix with white
+  const mix = (c) => Math.round(c * 0.33 + 255 * 0.67);
+  return `rgb(${mix(r)},${mix(g)},${mix(b)})`;
+}
+
 function applyStickyBackground() {
-  const tbody = document.getElementById('participants-tbody');
-  if (!tbody) return;
-  tbody.querySelectorAll('tr').forEach(row => {
-    // Read computed background color of the row
-    const computed = window.getComputedStyle(row).backgroundColor;
-    // If transparent, use white
-    const bg = (computed === 'rgba(0, 0, 0, 0)' || computed === 'transparent')
-      ? '#ffffff'
-      : computed;
-    row.querySelectorAll('td:nth-child(3), td:nth-child(4)').forEach(cell => {
-      cell.style.backgroundColor = bg;
-    });
-  });
+  // No longer needed - handled inline during render
 }
 
 // ── INLINE SAVE ───────────────────────────────────────────────
