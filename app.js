@@ -1618,15 +1618,18 @@ async function promoteLeadToParticipant(leadId) {
     customerId = newCust.id;
   }
 
-  // Check capacity
+  // Check capacity — stop if full
   const max = state.currentTrip.num_persons || 0;
-  const isWaitlist = max > 0 && state.currentParticipants.length >= max;
+  if (max > 0 && state.currentParticipants.length >= max) {
+    toast(`Το ταξίδι έχει φτάσει στον μέγιστο αριθμό συμμετεχόντων (${max}). Η εγγραφή παραμένει στους Ενδιαφερόμενους.`, 'error');
+    return;
+  }
 
   // Add to participants
   const { error: partErr } = await db.from('trip_participants').insert({
     trip_id:     state.currentTrip.id,
     customer_id: customerId,
-    is_waitlist: isWaitlist,
+    is_waitlist: false,
     sort_order:  state.currentParticipants.length,
   });
 
@@ -1639,13 +1642,11 @@ async function promoteLeadToParticipant(leadId) {
     return;
   }
 
-  // Delete from leads
+  // Delete from leads only if successfully added
   await db.from('trip_leads').delete().eq('id', leadId);
   state.currentLeads = state.currentLeads.filter(l => l.id !== leadId);
 
-  toast(isWaitlist
-    ? 'Μεταφέρθηκε στους Εφεδρικούς (πλήρης λίστα)'
-    : 'Μεταφέρθηκε στη λίστα συμμετεχόντων', 'success');
+  toast('Μεταφέρθηκε στη λίστα συμμετεχόντων', 'success');
 
   renderLeads();
   loadParticipants();
